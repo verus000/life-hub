@@ -1,22 +1,90 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  --background: var(--color-surface);
+  --foreground: var(--color-ink);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-brand);
+  --primary-foreground: var(--color-surface);
+  --secondary: var(--color-brand-soft);
+  --secondary-foreground: var(--color-brand);
+  --muted: var(--color-surface-soft);
+  --muted-foreground: var(--color-ink-3);
+  --accent: var(--color-brand-soft);
+  --accent-foreground: var(--color-brand);
+  --destructive: var(--color-danger);
+  --destructive-foreground: var(--color-surface);
+  --border: var(--color-line);
+  --input: var(--color-line-strong);
+  --ring: var(--color-brand);
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
 
 @theme {
-  --color-bg: #FBFDFD;
+  --color-bg: #F3F8FF;
   --color-surface: #FFFFFF;
-  --color-surface-soft: #F4F8FA;
-  --color-line: #EBF0F3;
-  --color-line-strong: #DEE8ED;
-  --color-ink: #2A3F4D;
-  --color-ink-2: #697F8C;
-  --color-ink-3: #7D929E;
-  --color-brand: #579FAA;
-  --color-brand-soft: #EEF8F9;
-  --color-danger: #BA756A;
-  --color-danger-soft: #FFF1ED;
-  --color-warn: #AE8A50;
-  --color-warn-soft: #FBF5E9;
-  --color-ok: #67977D;
-  --color-ok-soft: #EDF5EE;
+  --color-surface-soft: #F1F6FF;
+  --color-line: #E4EBF6;
+  --color-line-strong: #CEDBF0;
+  --color-ink: #23314D;
+  --color-ink-2: #526481;
+  --color-ink-3: #60718A;
+  --color-brand: #286DF2;
+  --color-brand-hover: #1F5DCF;
+  --color-brand-soft: #EDF3FF;
+  --color-hero: #DFEDFF;
+  --color-hero-ink: #24498B;
+  --color-hero-muted: #486690;
+  --color-sky: #C5DFFF;
+  --color-sun: #FFDC70;
+  --color-sun-shade: #F6CA50;
+  --color-cheek: #F49F76;
+  --color-mint: #E4F7ED;
+  --color-mint-ink: #267653;
+  --color-lemon: #FFF2D7;
+  --color-lemon-ink: #89601B;
+  --color-lilac: #F1EAFF;
+  --color-lilac-ink: #7952C8;
+  --color-danger: #AD4B3B;
+  --color-danger-soft: #FFF0EC;
+  --color-warn: #94531F;
+  --color-warn-soft: #FFF0DA;
+  --color-ok: #246D4D;
+  --color-ok-soft: #E5F6EC;
+  --color-overlay: #23314D55;
+
+  --shadow-card: 0 6px 28px #4778B309;
+  --shadow-popover: 0 12px 36px #23314D18;
+  --shadow-dialog: 0 24px 80px #23314D26;
 
   --font-sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
 }
@@ -24,14 +92,13 @@
 @layer base {
   html {
     scrollbar-width: thin;
-    scrollbar-color: #DDE9ED transparent;
+    scrollbar-color: var(--color-line-strong) transparent;
   }
 
   body {
     margin: 0;
     min-height: 100vh;
-    background: radial-gradient(ellipse 650px 330px at 83% 0%, #EFF9FAAA, transparent),
-      var(--color-bg);
+    background: var(--color-bg);
     color: var(--color-ink);
     font: 14px/1.65 var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -46,5 +113,33 @@
   button:disabled {
     opacity: 0.55;
     cursor: wait;
+  }
+
+}
+
+@layer components {
+  .category-icon {
+    @apply grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand;
+  }
+
+  .category-icon[data-category='broadband'] {
+    @apply bg-mint text-mint-ink;
+  }
+
+  .category-icon[data-category='parking'] {
+    @apply bg-lemon text-lemon-ink;
+  }
+
+  .category-icon[data-category='asset'] {
+    @apply bg-lilac text-lilac-ink;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+    scroll-behavior: auto !important;
   }
 }

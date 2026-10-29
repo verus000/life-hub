@@ -210,7 +210,7 @@ export async function login(
   const ok = await bcrypt.compare(pass, user.passwordHash || '');
   if (!ok) throw unauthorized('邮箱或密码错误');
   if (!user.emailVerifiedAt) {
-    throw forbidden('邮箱尚未验证，请先查收验证邮件');
+    throw forbidden('邮箱尚未验证，请先查收验证邮件', 'EMAIL_UNVERIFIED');
   }
   const session = await createSession(db, user.id);
   return { user: { id: user.id, email: user.email, createdAt: user.createdAt }, session };

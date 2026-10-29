@@ -171,7 +171,14 @@ export async function importItems(
     const existing = await listItems(db, userId);
     const part = partition(batch as ItemInput[], existing);
     if (part.items.length > 0) {
-      await db.insert(items).values(part.items.map((x) => toInsertValues(x as ValidatedFields, userId)));
+      /* 单批保守限制参数数量；同步事务中不能使用 async 回调。 */
+      db.transaction((tx) => {
+        for (let offset = 0; offset < part.items.length; offset += 50) {
+          tx.insert(items)
+            .values(part.items.slice(offset, offset + 50).map((x) => toInsertValues(x as ValidatedFields, userId)))
+            .run();
+        }
+      });
     }
     return { created: part.items.length, skipped: part.skipped };
   });

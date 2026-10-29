@@ -12,6 +12,6 @@ export async function POST(req: NextRequest) {
     const result = await importItems(getDb(), body.items, user.id);
     return NextResponse.json(result, { status: 201 });
   } catch (e) {
-    return jsonError(e);
+    return jsonError(e, req);
   }
 }

@@ -62,6 +62,20 @@ function ensureSchema(client: DatabaseSync) {
     client.exec('ALTER TABLE "items" ADD COLUMN "user_id" integer');
   }
   client.exec('CREATE INDEX IF NOT EXISTS "items_user_idx" ON "items" ("user_id")');
+  /* 旧认证版本使用 verifications；搬空旧表，防止重启复活已使用/已重发的令牌。 */
+  const legacy = client.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'verifications'").get();
+  if (legacy) {
+    client.exec('BEGIN IMMEDIATE');
+    try {
+      client.exec(`INSERT OR IGNORE INTO verification_tokens (token_hash, user_id, expires_at, created_at)
+        SELECT token_hash, user_id, expires_at, created_at FROM verifications`);
+      client.exec('DELETE FROM verifications');
+      client.exec('COMMIT');
+    } catch (e) {
+      client.exec('ROLLBACK');
+      throw e;
+    }
+  }
 }
 
 function createDb(file: string): Db {

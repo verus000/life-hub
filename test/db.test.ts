@@ -4,9 +4,27 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { createDbAt } from '@/server/db';
 import { claimLegacyItems } from '@/server/items/service';
-import { createLegacyDb } from './helpers';
+import { getSessionUser, resend, verify } from '@/server/auth/service';
+import { clearMail, createLegacyDb, setupEnv, verifyTokenFromOutbox } from './helpers';
+
+function legacyVerificationDb(expiresAt = new Date(Date.now() + 3600000).toISOString()) {
+  setupEnv();
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lifehub-verification-')), 'legacy.db');
+  const db = createDbAt(file);
+  const now = new Date().toISOString();
+  const token = 'c'.repeat(64);
+  db.$client.prepare('INSERT INTO users (email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?)')
+    .run('legacy@example.test', 'unused', now, now);
+  db.$client.exec(`DROP TABLE verification_tokens;
+    CREATE TABLE verifications (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL)`);
+  db.$client.prepare('INSERT INTO verifications VALUES (?, 1, ?, ?)')
+    .run(createHash('sha256').update(token).digest('hex'), expiresAt, now);
+  db.$client.close();
+  return { file, token };
+}
 
 describe('数据库初始化', () => {
   it('新库自动创建全部表与索引', async () => {
@@ -57,5 +75,40 @@ describe('数据库初始化', () => {
     const count = b.$client.prepare('SELECT COUNT(*) c FROM items').get() as { c: number };
     expect(count.c).toBe(0);
     b.$client.close();
+  });
+
+  it('迁移旧认证令牌，激活后重启不会恢复一次性令牌', async () => {
+    const { file, token } = legacyVerificationDb();
+    const db = createDbAt(file);
+    expect(db.$client.prepare('SELECT count(*) AS n FROM verifications').get()).toMatchObject({ n: 0 });
+    expect(db.$client.prepare('SELECT count(*) AS n FROM verification_tokens').get()).toMatchObject({ n: 1 });
+    const activated = await verify(db, token);
+    expect((await getSessionUser(db, activated.session.token))?.email).toBe('legacy@example.test');
+    db.$client.close();
+    const reopened = createDbAt(file);
+    await expect(verify(reopened, token)).rejects.toMatchObject({ status: 400 });
+    expect((await getSessionUser(reopened, activated.session.token))?.email).toBe('legacy@example.test');
+    reopened.$client.close();
+  });
+
+  it('迁移后重发邮件使旧令牌失效，重启后仍仅接受新令牌', async () => {
+    const { file, token } = legacyVerificationDb();
+    const db = createDbAt(file);
+    clearMail();
+    await resend(db, 'legacy@example.test', 'legacy-resend');
+    const replacement = verifyTokenFromOutbox();
+    db.$client.close();
+    const reopened = createDbAt(file);
+    await expect(verify(reopened, token)).rejects.toMatchObject({ status: 400 });
+    expect((await verify(reopened, replacement)).email).toBe('legacy@example.test');
+    reopened.$client.close();
+  });
+
+  it('迁移保留旧令牌的有效期，过期令牌不可激活', async () => {
+    const { file, token } = legacyVerificationDb('2000-01-01T00:00:00.000Z');
+    const reopened = createDbAt(file);
+    await expect(verify(reopened, token)).rejects.toMatchObject({ status: 400 });
+    expect(reopened.$client.prepare('SELECT email_verified_at FROM users').get()).toMatchObject({ email_verified_at: null });
+    reopened.$client.close();
   });
 });

@@ -5,6 +5,7 @@ import { z } from 'zod';
 const envSchema = z.object({
   DB_FILE_NAME: z.string().default('data/life-hub.db'),
   APP_URL: z.string().default(''),
+  TRUST_PROXY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   MAIL_MODE: z.enum(['console', 'smtp']).default('console'),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(587),

@@ -11,7 +11,6 @@ import {
 } from '@/server/auth/service';
 import { getDb } from '@/server/db';
 import { listItems } from '@/server/items/service';
-import { AppError } from '@/server/errors';
 import { clearMail, freshDb, setupEnv, verifyTokenFromOutbox } from './helpers';
 
 let seq = 0;
@@ -32,6 +31,7 @@ describe('注册与验证', () => {
     /* 未激活登录被拒 */
     await expect(login(db, 'smoke@test.dev', 'pass-word-123', 'ip-2')).rejects.toMatchObject({
       status: 403,
+      code: 'EMAIL_UNVERIFIED',
     });
 
     const result = await verify(db, token);
@@ -124,7 +124,7 @@ describe('限流', () => {
     for (let i = 0; i < 20; i++) {
       await login(db, 'nobody@test.dev', 'bad-pass-000', 'rate-ip').catch(() => undefined);
     }
-    await expect(login(db, 'nobody@test.dev', 'bad-pass-000', 'rate-ip')).rejects.toBeInstanceOf(AppError);
+    await expect(login(db, 'nobody@test.dev', 'bad-pass-000', 'rate-ip')).rejects.toMatchObject({ status: 429 });
   });
 
   it('resend 幂等返回统一提示', async () => {

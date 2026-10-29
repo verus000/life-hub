@@ -85,6 +85,30 @@ describe('用户数据隔离', () => {
 });
 
 describe('批量导入', () => {
+  it('2500 条记录分批写入，重复导入仍全部跳过', async () => {
+    const db = freshDb();
+    const uid = await seedUser(db, 13);
+    const batch = Array.from({ length: 2500 }, (_, n) => ({ category: 'asset', title: '批量账户-' + n, amount: null }));
+    expect(await importItems(db, batch, uid)).toEqual({ created: 2500, skipped: 0 });
+    expect(await importItems(db, batch, uid)).toEqual({ created: 0, skipped: 2500 });
+    expect((await listItems(db, uid)).length).toBe(2500);
+    db.$client.close();
+  });
+
+  it('后续批次写入失败时回滚整个导入，保留原有记录', async () => {
+    const db = freshDb();
+    const uid = await seedUser(db, 14);
+    const original = await addItem(db, { category: 'asset', title: '原有账户' }, uid);
+    db.$client.exec(`CREATE TRIGGER reject_import BEFORE INSERT ON items
+      WHEN NEW.title = '拒绝行' BEGIN SELECT RAISE(ABORT, '模拟写入失败'); END`);
+    const batch = Array.from({ length: 125 }, (_, n) => ({
+      category: 'asset', title: n === 110 ? '拒绝行' : '回滚账户-' + n,
+    }));
+    await expect(importItems(db, batch, uid)).rejects.toThrow();
+    expect(await listItems(db, uid)).toEqual([original]);
+    db.$client.close();
+  });
+
   it('跳过重复并写入新增', async () => {
     const db = freshDb();
     const uid = await seedUser(db, 9);

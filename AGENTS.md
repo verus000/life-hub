@@ -13,11 +13,11 @@
 - 个人生活管理应用，包含手机号保活、宽带、停车费和资产分布，支持到期提醒、周期顺延、搜索筛选及 CSV 导入导出。
 - 多用户：邮箱注册（邮件验证激活）、登录会话（HttpOnly Cookie），数据按 `user_id` 隔离；首个完成激活的用户自动认领历史无归属数据。
 - 产品面向个人日常使用，界面以简单、直接、少干扰为优先：顶部分类导航，首页先展示最近安排，统计、筛选及补充字段按需展开。后续改版沿用这一定位。
-- 视觉偏好为清新、简洁：清透白底、少量浅蓝或薄荷色、细线导航、明确的字号层次与舒展留白；空状态可使用轻量内联 SVG。调整配色时同时照顾正文和日期的可读性。
+- 视觉采用已选定的“晴空朋友”：明亮浅蓝底、白色圆角卡片、晴空蓝主按钮、柠檬黄笑脸小太阳，辅以薄荷绿和浅紫色分类图标；使用轻量内联 SVG，不引入远程图片或字体。保持顶部分类导航、最近安排优先和统计按需展开，正文、日期及移动端操作保持清晰易读。
 - 技术栈：Next.js 16（App Router、Route Handlers、standalone 输出）+ TypeScript 严格模式 + Drizzle ORM（`node-sqlite` 驱动，基于 Node 22 内置 `node:sqlite`，零原生编译）+ Tailwind CSS v4（CSS-first 配置）+ React 19。
 - 认证为自管会话（SHA-256 哈希令牌 + HttpOnly Cookie），未使用 Auth.js；密码哈希 `bcryptjs`，验证邮件 `nodemailer`。
-- 数据库只保留 SQLite 单库；旧版 JSON / MySQL / PostgreSQL 适配器已在 Next.js 迁移中移除，历史数据迁移路径为"旧 JSON / SQLite 库 → 新库自动补列 + 认领"。
-- git 分支约定：`master` 为原生 Node 历史基线；`next-migration` 为 Next.js 重写主线，二者不合并，回退时以基线分支为准。
+- 数据库只保留 SQLite 单库；旧版 JSON / MySQL / PostgreSQL 适配器已在 Next.js 迁移中移除。旧 SQLite 库自动补列并迁移认证令牌；旧 JSON 需先从旧版导出备份，再在新版登录后导入条目，详见 `UPGRADING.md`。
+- git 分支约定：`main` 为原生 Node 历史基线；`next-migration` 为 Next.js 重写主线，二者不合并，回退时以基线分支为准。
 
 ## 文件职责
 
@@ -46,10 +46,12 @@
 | `src/components/ItemForm.tsx` | schema 驱动表单：国家联想、日期快捷键、presets、字段折叠 |
 | `src/components/Overview.tsx` / `CategoryList.tsx` | 统计卡 + 环形图、搜索（含 isComposing）/筛选/条目操作 |
 | `src/components/ActionModals.tsx` / `auth/AuthCard.tsx` / `ui.tsx` / `icons.tsx` | 处理与历史撤销弹窗、登录注册三视图、通用 UI 件、内联 SVG |
-| `test/` | Vitest：records / model / db（建表迁移）/ auth / items，共 41 项；`helpers.ts` 提供临时库与 outbox 令牌提取 |
+| `src/components/ui/` / `src/lib/utils.ts` / `components.json` | shadcn/ui 源码组件、Radix 交互、中文日期与国家选择器、Sonner 通知；`cn` 合并 Tailwind 样式 |
+| `test/` | Vitest：records / model / db（建表与旧令牌迁移）/ auth / items / API 助手与路由 / 认证页面（含 StrictMode 激活请求）/ Docker 入口，共 75 项；`helpers.ts` 提供临时库与 outbox 令牌提取 |
 | `vitest.config.mts` | node 环境、`@` 别名（**必须是 .mts**，.ts 会被按 CJS 加载） |
 | `drizzle.config.ts` / `next.config.ts` / `tsconfig.json` / `postcss.config.mjs` | 工具链配置；`next.config.ts` 设 `output: 'standalone'`、`serverExternalPackages: ['nodemailer']` |
 | `Dockerfile` / `docker-compose.yml` / `.env.example` | 三阶段构建（standalone 运行时）、8787:3000 映射、`/data` 卷、环境变量参考 |
+| `docker-entrypoint.cjs` / `UPGRADING.md` | 兼容旧卷权限后降权启动；数据卷、激活链接和代理配置的升级说明 |
 | `data/` | 本地持久化数据（SQLite 库等），不能用作测试夹具 |
 
 ## 运行与配置
@@ -59,12 +61,13 @@ node --version          # 需要 >= 22.5（node:sqlite）
 npm install
 npm run dev             # 开发（http://localhost:3000）
 npm run build && npm start   # 生产（standalone）
-npm test                # Vitest 41 项
+npm test                # Vitest 75 项
 npm run typecheck       # tsc --noEmit
 ```
 
 - 环境变量由 Next.js 内置 `.env` 机制加载（无 dotenv）；以 `.env.example` 为参考：`DB_FILE_NAME`、`APP_URL`、`MAIL_MODE`（`console`/`smtp`）、`SMTP_HOST/PORT/USER/PASS/FROM`、`SESSION_TTL_DAYS`、`BCRYPT_ROUNDS`。开发期未配置 SMTP 时默认 console 模式（验证链接打印到终端）。
-- 数据库文件路径相对于项目根目录；Docker 中为 `/data/life-hub.db`。
+- 数据库文件路径相对于项目根目录；Docker 中为 `/data/life-hub.db`。Compose 保留旧 `life-hub-data` 卷名，升级时保持原项目名；已使用 `app-data` 的部署按 `UPGRADING.md` 指向既有卷。
+- `TRUST_PROXY=false` 为默认值：忽略客户端代理头，直连认证请求共用限流桶。仅在禁止直连且可信反代覆盖/追加真实 IP 时设为 `true`，取 `X-Forwarded-For` 最右侧有效 IP，否则取代理覆盖的 `X-Real-IP`。
 - PowerShell 使用 `$env:MAIL_MODE = 'console'` 形式设置环境变量；临时调试优先用环境变量，不要改用户的 `.env`。
 - Docker：`docker build -t life-hub .` 或 `docker compose up -d`。
 - `node:sqlite` 是实验性 API，构建与测试日志中的 `ExperimentalWarning` 属预期，不是故障。
@@ -79,6 +82,7 @@ npm run typecheck       # tsc --noEmit
 - 领域计算留在 `src/lib/`（纯函数，前后端共用，不得导入 server 模块）；数据库细节留在 `src/server/items/service.ts`；Route Handler 只做参数解析、鉴权与响应。
 - 新增管理类别时，先改 `src/lib/model.ts` 的 `CATEGORIES` 与顺序，再检查 `ItemForm` 字段渲染、`CategoryList` 展示、`Overview` 统计及 `records.ts` 的 CSV 映射，并补自测。
 - 样式优先复用 `globals.css` 的 `@theme` token 生成的 utility（`bg-surface`、`text-ink-2`、`border-line` 等）；不引入图标库、远程字体或图片依赖。新增动效需尊重 `prefers-reduced-motion`。
+- 交互组件优先复用 `src/components/ui/` 的 shadcn/ui + Radix 源码，语义色通过 `globals.css` 映射到“晴空朋友”的蓝黄主题。避免重新引入原生下拉、日期框与 `window.confirm`；日期仍按本地日历输出 `YYYY-MM-DD`，国家支持自定义输入，旧的未知下拉值需保留。
 - React 组件中用户内容经 JSX 文本节点输出（自动转义）；不要用 `dangerouslySetInnerHTML`。SQL 一律走 Drizzle 参数绑定。
 
 ## 数据与接口兼容
@@ -90,6 +94,7 @@ npm run typecheck       # tsc --noEmit
 - 周期支出按币种分别汇总，排除暂停、归档、已完成及一次性条目。`status` 可选 `active`、`paused`、`archived`、`completed`；默认列表与待办只展示在用条目。
 - `detail.recordKey` 是新记录的稳定标识；导入按标识去重，旧文件没有标识时按完整内容去重。`detail.reminderCycle` 将保活 / 复核周期与缴费 `cycle` 分开；`detail.reminderAnchor` 保留原始日期；`detail.contractDate` 是独立的宽带合约提醒，旧记录的 `nextDate` 保留原值，编辑时提示核对，不自动推断。`detail.history` 保存处理和状态记录；撤销仅允许最新一次处理且相关字段未发生后续变更。
 - `items.userId` 为空的历史数据由首个完成邮箱验证的用户认领（`claimLegacyItems`）；之后的注册用户从空数据开始。旧库升级由 `ensureSchema()` 做补列迁移（注意：`items_user_idx` 索引必须在补列**之后**创建）。
+- 旧 `verifications` 令牌在事务内搬入 `verification_tokens` 并搬空旧表，避免重启复活已消费令牌。旧 `/?verify=...` 链接由 middleware 在登录闸门之前转到 `/verify?token=...`；登录和注册页的跳转须校验真实会话，不能仅凭 Cookie 存在性。
 - `update` 是部分更新：未传入的字段保留，包括 `detail`；显式传 `detail` 时整体替换。更新和删除不存在的记录返回 404，列表按 ID 升序返回。
 - 涉及表结构变更时同步更新 `schema.ts`、`ensureSchema()` 的迁移逻辑与 `test/db.test.ts`；`CREATE TABLE IF NOT EXISTS` 不会迁移已存在的表。
 
@@ -112,7 +117,7 @@ npm run typecheck       # tsc --noEmit
 | DELETE | `/api/items` | 清空当前用户所有条目，返回 `{ ok: true }` |
 
 - 错误响应统一 `{ error: '中文信息' }`；修改路由需同步检查 `src/lib/api.ts` 调用及测试。
-- 请求体默认上限 2MB（`readJson`）。
+- 请求体默认上限 2MB（`readJson` 按流累计 UTF-8 字节，超限返回 413）。批量导入在单个同步事务内分批写入，任一批次失败需整批回滚。
 - CSV 导出保留 UTF-8 BOM；解析保留对引号、逗号、换行的支持，并兼容旧手机号应用的中文表头。完整 JSON 备份使用 `{ format: 'life-hub-backup', version: 1, exportedAt, items }`；导入先预览、再合并，校验错误整批不写入。
 - 日历文件是今天及未来在用事项的快照；日期或状态改变后需移除旧日历事项并重新导入。
 
@@ -120,7 +125,7 @@ npm run typecheck       # tsc --noEmit
 
 ```powershell
 npm run typecheck   # tsc --noEmit
-npm test            # Vitest（41 项）
+npm test            # Vitest（75 项）
 npm run build       # 生产构建，15 个路由
 ```
 

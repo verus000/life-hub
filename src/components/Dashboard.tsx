@@ -2,13 +2,17 @@
 
 /* 主界面容器：顶栏、分类导航、总览 / 列表切换、全部弹窗与数据操作 */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Api, ApiError, downloadFile, toCSV } from '@/lib/api';
 import { CATEGORIES, ORDER, canUndo, complete as completeItem, todayStr, undo as undoItem } from '@/lib/model';
 import { backup, CATEGORIES as CATEGORY_LABELS, clone, parseImport, partition } from '@/lib/records';
 import { createCalendar } from '@/lib/calendar';
 import type { CompletionValues, Item, ItemInput, ValidatedFields } from '@/lib/types';
-import { Btn, Modal, Toast } from '@/components/ui';
+import { Btn, Modal, ConfirmDialog } from '@/components/ui';
+import { toast as notify } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Icon, Logo } from '@/components/icons';
 import { Overview } from '@/components/Overview';
 import { CategoryList } from '@/components/CategoryList';
@@ -23,14 +27,14 @@ const PAGE_META: Record<string, { label: string; desc: string }> = {
   asset: { label: '我的资产', desc: '按账户查看资产，定期复核余额。' },
 };
 
-interface ImportPreview {
+type ImportPreview = {
   filename: string;
   total: number;
   created: number;
   skipped: number;
   preview: Array<{ category: string; title: string }>;
   items: ValidatedFields[];
-}
+};
 
 export function Dashboard({ initialItems, email }: { initialItems: Item[]; email: string }) {
   const [items, setItems] = useState<Item[]>(initialItems);
@@ -39,7 +43,6 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
   const [filter, setFilter] = useState('all');
   const [lifecycle, setLifecycle] = useState('active');
   const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState('');
   const [modalError, setModalError] = useState('');
   const [offline, setOffline] = useState(false);
 
@@ -49,17 +52,10 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
   const [historyTarget, setHistoryTarget] = useState<Item | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<{ type: 'remove'; item: Item } | { type: 'wipe' } | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(''), 2200);
-  }, []);
-
-  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+  const showToast = useCallback((msg: string) => { notify(msg); }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -169,22 +165,23 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
   }
 
   function removeItem(id: number) {
-    const x = items.find((i) => i.id === id);
-    if (!x) return;
-    if (!window.confirm('确定删除「' + (x.title || '未命名') + '」？此操作不可撤销。')) return;
-    void run(async () => {
-      await Api.remove(id);
-      await refresh();
-      showToast('已删除');
-    });
+    const item = items.find((entry) => entry.id === id);
+    if (item) setConfirmTarget({ type: 'remove', item });
   }
 
   function wipe() {
-    if (!window.confirm('将清空全部数据，建议先下载完整备份。确定继续？')) return;
+    setConfirmTarget({ type: 'wipe' });
+  }
+
+  function confirmDelete() {
+    const target = confirmTarget;
+    if (!target) return;
     void run(async () => {
-      await Api.clear();
+      if (target.type === 'remove') await Api.remove(target.item.id);
+      else await Api.clear();
+      setConfirmTarget(null);
       await refresh();
-      showToast('已清空');
+      showToast(target.type === 'remove' ? '已删除' : '已清空');
     });
   }
 
@@ -300,134 +297,137 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
   );
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-30 flex items-center gap-3 px-6 h-14 bg-surface/90 backdrop-blur border-b border-line">
-        <div className="flex items-center gap-2 text-brand">
-          <Logo className="w-6 h-6" />
-          <span className="text-[15px] font-medium text-ink">生活管理</span>
-        </div>
-        <span className="ml-1 text-[12px] text-ink-3 hidden sm:inline truncate">{email}</span>
-        <div className="flex-1" />
-        <Btn variant="primary" onClick={() => openAdd()}>
-          ＋ 添加
-        </Btn>
-        <details className="relative">
-          <summary className="cursor-pointer select-none list-none inline-flex items-center gap-1 h-9 px-3.5 rounded-[10px] text-[13px] font-medium text-ink-2 hover:bg-surface-soft">
-            更多
-          </summary>
-          <div className="absolute right-0 top-11 z-30 w-44 py-1 rounded-[10px] bg-surface border border-line shadow-lg">
-            <button className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-soft" onClick={() => setCalendarOpen(true)}>
-              日历提醒
-            </button>
-            <button className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-soft" onClick={exportBackup}>
-              备份全部记录
-            </button>
-            <button className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-soft" onClick={pickImportFile}>
-              导入数据
-            </button>
-            <button className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-soft" onClick={exportCSV}>
-              导出表格
-            </button>
-            <button className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-soft" onClick={logout}>
-              退出登录
-            </button>
-            <button className="w-full text-left px-3 py-2 text-[13px] text-danger hover:bg-danger-soft" onClick={wipe}>
-              清空全部数据
-            </button>
+    <Tabs value={tab} onValueChange={switchTab} className="min-h-screen flex flex-col">
+      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1088px] items-center gap-2 px-4 py-4 sm:gap-3 sm:px-8 sm:py-5">
+          <div className="mr-auto flex items-center gap-2.5 text-brand">
+            <Logo className="h-9 w-9 -rotate-6" />
+            <div>
+              <span className="block text-base font-extrabold tracking-wide text-ink sm:text-lg">生活管理</span>
+              <span className="block text-[10px] font-medium tracking-[0.18em] text-ink-3">LIFE HUB</span>
+            </div>
           </div>
-        </details>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,.json,text/csv,application/json"
-          hidden
-          onChange={onImportFile}
-        />
+          <Btn variant="primary" onClick={() => openAdd()}>
+            <Icon name="plus" className="h-4 w-4" />
+            <span>添加<span className="hidden sm:inline">安排</span></span>
+          </Btn>
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" aria-label="更多操作" className="px-3"><Icon name="more" /><span className="hidden sm:inline">更多</span></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="break-all">{email}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setCalendarOpen(true)}><Icon name="calendar" />日历提醒</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportBackup}><Icon name="download" />备份全部记录</DropdownMenuItem>
+              <DropdownMenuItem onSelect={pickImportFile}><Icon name="upload" />导入数据</DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportCSV}><Icon name="layers" />导出表格</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={logout}><Icon name="logout" />退出登录</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={wipe}><Icon name="trash" />清空全部数据</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.json,text/csv,application/json"
+            hidden
+            onChange={onImportFile}
+          />
+        </div>
       </header>
 
-      <nav className="flex gap-1 px-6 pt-4 flex-wrap" aria-label="生活分类">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            className={'inline-flex items-center gap-1.5 px-3.5 h-9 rounded-[10px] text-[13px] font-medium transition-colors ' +
-              (tab === t.key ? 'bg-brand-soft text-brand' : 'text-ink-2 hover:bg-surface-soft hover:text-ink')}
-            aria-current={tab === t.key ? 'page' : undefined}
-            onClick={() => switchTab(t.key)}
-          >
-            {t.label}
-            {t.count ? <span className="text-[11px] opacity-70">{t.count}</span> : null}
-          </button>
-        ))}
-      </nav>
-
-      <div className="flex-1 w-full max-w-[960px] mx-auto px-6 py-5 grid gap-4 content-start">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="m-0 text-[18px] font-medium text-ink">{meta.label}</h1>
-            <p className="m-0 mt-0.5 text-[13px] text-ink-3">{meta.desc}</p>
-          </div>
-          <div className="flex items-center gap-1.5 text-[13px] text-ink-3 shrink-0">
-            <Icon name="calendar" className="w-4 h-4" />
-            <span>{day}</span>
-          </div>
-        </div>
-
-        {tab === 'overview' ? (
-          <Overview
-            items={items}
-            onMarkDone={(id) => {
-              const x = items.find((i) => i.id === id);
-              if (x) setCompleteTarget(x);
-            }}
-            onOpenEdit={openEdit}
-            onOpenAdd={openAdd}
-            onGotoTab={switchTab}
-          />
-        ) : (
-          <CategoryList
-            items={items}
-            category={tab}
-            keyword={keyword}
-            filter={filter}
-            lifecycle={lifecycle}
-            onKeyword={setKeyword}
-            onFilter={setFilter}
-            onLifecycle={setLifecycle}
-            onMarkDone={(id) => {
-              const x = items.find((i) => i.id === id);
-              if (x) setCompleteTarget(x);
-            }}
-            onOpenEdit={openEdit}
-            onOpenAdd={openAdd}
-            onHistory={(id) => {
-              const x = items.find((i) => i.id === id);
-              if (x) setHistoryTarget(x);
-            }}
-            onChangeStatus={changeStatus}
-            onRemove={removeItem}
-          />
-        )}
+      <div className="bg-surface border-b border-line/70">
+        <nav className="mx-auto w-full max-w-[1088px] px-4 pb-4 sm:px-8" aria-label="生活分类">
+          <TabsList aria-label="生活分类" className="grid w-full max-w-full grid-cols-5 sm:inline-flex sm:w-auto">
+            {tabs.map((entry) => <TabsTrigger key={entry.key} value={entry.key} className="min-w-0 px-1.5 sm:px-3">
+              <Icon name={entry.key === 'overview' ? 'sun' : entry.key} className="hidden size-4 sm:block" />
+              {entry.label}
+              {entry.count > 0 && <span className="hidden text-[11px] opacity-80 sm:inline">{entry.count}</span>}
+            </TabsTrigger>)}
+          </TabsList>
+        </nav>
       </div>
 
-      <footer className="px-6 py-3 text-[12px] text-ink-3 border-t border-line">
-        {offline ? '暂时无法连接服务，展示的是最近加载的数据' : '已连接数据库 · 数据按账号隔离存储'}
+      <main className="flex-1 w-full max-w-[1024px] mx-auto px-4 py-6 sm:px-8 sm:py-8">
+        {tabs.map(({ key }) => <TabsContent key={key} value={key} className="space-y-5">
+          {key === tab && <>
+            {tab !== 'overview' ? <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="m-0 text-[22px] font-extrabold text-ink">{meta.label}</h1>
+                <p className="m-0 mt-1 text-sm text-ink-3">{meta.desc}</p>
+              </div>
+              <div className="flex items-center gap-1.5 text-[13px] text-ink-3 shrink-0">
+                <Icon name="calendar" className="w-4 h-4" />
+                <span>{day}</span>
+              </div>
+            </div> : null}
+
+            {tab === 'overview' ? (
+              <Overview
+                items={items}
+                dateLabel={day}
+                onMarkDone={(id) => {
+                  const x = items.find((i) => i.id === id);
+                  if (x) setCompleteTarget(x);
+                }}
+                onOpenEdit={openEdit}
+                onOpenAdd={openAdd}
+                onGotoTab={switchTab}
+              />
+            ) : (
+              <CategoryList
+                items={items}
+                category={tab}
+                keyword={keyword}
+                filter={filter}
+                lifecycle={lifecycle}
+                onKeyword={setKeyword}
+                onFilter={setFilter}
+                onLifecycle={setLifecycle}
+                onMarkDone={(id) => {
+                  const x = items.find((i) => i.id === id);
+                  if (x) setCompleteTarget(x);
+                }}
+                onOpenEdit={openEdit}
+                onOpenAdd={openAdd}
+                onHistory={(id) => {
+                  const x = items.find((i) => i.id === id);
+                  if (x) setHistoryTarget(x);
+                }}
+                onChangeStatus={changeStatus}
+                onRemove={removeItem}
+              />
+            )}
+          </>}
+        </TabsContent>)}
+      </main>
+
+      <footer className="mx-auto flex w-full max-w-[1024px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 pb-6 pt-2 text-xs text-ink-3 sm:px-8">
+        <div>
+          <p className="m-0 font-medium">小事有着落，生活更轻松。</p>
+          <p className="m-0 mt-1">{offline ? '暂时无法连接，展示最近加载的记录' : '记录已同步'}</p>
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => setCalendarOpen(true)}>
+          <Icon name="calendar" className="h-4 w-4" />导出日历提醒
+        </Button>
       </footer>
 
       {chooseOpen ? (
         <Modal title="选择要添加的分类" onClose={() => setChooseOpen(false)}>
           <div className="grid gap-2">
             {ORDER.map((k) => (
-              <button
+              <Button variant="outline"
                 key={k}
-                className="flex items-center gap-3 px-4 h-12 rounded-xl border border-line text-[14px] text-ink hover:bg-surface-soft"
+                className="h-auto w-full justify-start gap-3 px-4 py-3"
                 onClick={() => openAdd(k)}
               >
-                <span className="w-9 h-9 grid place-items-center rounded-[10px] bg-brand-soft text-brand">
+                <span className="category-icon" data-category={k}>
                   <Icon name={k} />
                 </span>
                 <span className="flex-1 text-left">{CATEGORY_LABELS[k]}</span>
                 <Icon name="arrow" className="w-4 h-4 text-ink-3" />
-              </button>
+              </Button>
             ))}
           </div>
         </Modal>
@@ -514,7 +514,13 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
         </Modal>
       ) : null}
 
-      {toast ? <Toast message={toast} /> : null}
-    </div>
+      {confirmTarget && <ConfirmDialog
+        title={confirmTarget.type === 'wipe' ? '清空全部记录？' : '删除这条记录？'}
+        description={confirmTarget.type === 'wipe' ? '所有分类的记录都将删除，且无法撤销。建议先下载完整备份。' : '“' + confirmTarget.item.title + '”将被永久删除，此操作无法撤销。'}
+        busy={busy}
+        onCancel={() => setConfirmTarget(null)}
+        onConfirm={confirmDelete}
+      />}
+    </Tabs>
   );
 }

@@ -2,15 +2,21 @@
 
 /* 邮箱激活：读取 ?token= 调用验证接口（成功即写入会话 Cookie），展示结果 */
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Logo } from '@/components/icons';
+import { Logo, SunnyArtwork } from '@/components/icons';
 import { Btn } from '@/components/ui';
+
+type VerificationResult = {
+  ok: boolean;
+  data: { email?: string; claimed?: number; error?: string };
+};
 
 function VerifyBody() {
   const token = useSearchParams().get('token') || '';
   const [state, setState] = useState<'loading' | 'ok' | 'fail'>('loading');
   const [message, setMessage] = useState('');
+  const request = useRef<{ token: string; result: Promise<VerificationResult> } | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -18,10 +24,21 @@ function VerifyBody() {
       setMessage('激活链接无效');
       return;
     }
-    fetch('/api/auth/verify?token=' + encodeURIComponent(token))
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        if (res.ok) {
+    let current = true;
+    /* StrictMode 会重复启动 effect；复用当前请求，避免消费一次性令牌两次。 */
+    if (request.current?.token !== token) {
+      request.current = {
+        token,
+        result: fetch('/api/auth/verify?token=' + encodeURIComponent(token))
+          .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) })),
+      };
+    }
+    setState('loading');
+    setMessage('');
+    request.current.result
+      .then(({ ok, data }) => {
+        if (!current) return;
+        if (ok) {
           setState('ok');
           setMessage(
             '邮箱 ' + (data.email || '') + ' 已激活。' +
@@ -33,34 +50,41 @@ function VerifyBody() {
         }
       })
       .catch(() => {
+        if (!current) return;
         setState('fail');
         setMessage('无法连接服务，请稍后重试');
       });
+    return () => { current = false; };
   }, [token]);
 
   return (
-    <div className="fixed inset-0 z-80 grid place-items-center p-6 bg-[#F4F8FAEE]">
-      <div className="w-full max-w-[360px] px-7 py-8 rounded-[18px] bg-surface border border-line shadow-[0_18px_44px_#2940351F] text-center">
-        <div className="flex items-center justify-center gap-2.5 mb-3 text-brand">
-          <Logo className="w-6 h-6" />
-          <span className="text-[15px] font-medium text-ink">生活管理</span>
+    <main className="grid min-h-dvh place-items-center bg-bg px-4 py-10 sm:px-6">
+      <div className="w-full max-w-[420px] overflow-hidden rounded-[28px] bg-surface border border-line shadow-card text-center">
+        <div className="flex flex-col items-center bg-hero px-7 pb-5 pt-7">
+          <div className="flex items-center justify-center gap-2.5 text-brand">
+            <Logo className="h-9 w-9 -rotate-6" />
+            <span className="text-base font-extrabold tracking-wide text-ink">生活管理</span>
+          </div>
+          <SunnyArtwork className="mt-2 h-32 w-40" />
         </div>
-        <h2 className="m-0 mb-3 text-[17px] font-medium text-ink">
-          {state === 'loading' ? '正在激活…' : state === 'ok' ? '激活成功' : '激活失败'}
-        </h2>
-        <p className="m-0 text-[13px] leading-relaxed text-ink-2">{message}</p>
-        {state === 'ok' && (
-          <Btn variant="primary" className="mt-5 w-full" onClick={() => (window.location.href = '/')}>
-            进入应用
-          </Btn>
-        )}
-        {state === 'fail' && (
-          <Btn className="mt-5 w-full" onClick={() => (window.location.href = '/login')}>
-            返回登录
-          </Btn>
-        )}
+        <div className="px-7 py-7">
+          <h1 className="m-0 mb-3 text-xl font-bold text-ink">
+            {state === 'loading' ? '正在激活…' : state === 'ok' ? '激活成功' : '激活失败'}
+          </h1>
+          <p className="m-0 break-words text-sm leading-relaxed text-ink-2" role="status">{message}</p>
+          {state === 'ok' && (
+            <Btn variant="primary" className="mt-5 w-full" onClick={() => (window.location.href = '/')}>
+              进入应用
+            </Btn>
+          )}
+          {state === 'fail' && (
+            <Btn className="mt-5 w-full" onClick={() => (window.location.href = '/login')}>
+              返回登录
+            </Btn>
+          )}
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
 

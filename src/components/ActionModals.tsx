@@ -2,14 +2,17 @@
 
 /* 记录处理弹窗：保活 / 续费 / 缴费 / 复核 */
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { money, reminderCycle, shiftNext, todayStr } from '@/lib/model';
 import { CYCLES } from '@/lib/records';
 import type { CompletionValues, Item } from '@/lib/types';
 import { Btn, Modal } from '@/components/ui';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Label } from '@/components/ui/label';
+import { Card } from '@/components/ui/card';
 
-const inputCls =
-  'w-full min-h-[38px] px-3 rounded-[10px] border border-line-strong bg-white text-[13px] text-ink focus:outline-2 focus:outline-brand focus:border-brand';
 
 export function CompleteModal({
   item,
@@ -25,6 +28,7 @@ export function CompleteModal({
   onClose: () => void;
 }) {
   const once = reminderCycle(item) === 'once';
+  const fieldId = useId();
   const [values, setValues] = useState<Record<string, string>>({
     date: todayStr(),
     amount: item.category === 'phone' ? '' : item.amount === null || item.amount === undefined ? '' : String(item.amount),
@@ -58,46 +62,46 @@ export function CompleteModal({
           <Btn disabled={busy} onClick={busy ? () => undefined : onClose}>
             取消
           </Btn>
-          <Btn variant="primary" disabled={busy || !values.date} onClick={() => submit({ preventDefault: () => undefined } as React.FormEvent)}>
+          <Btn variant="primary" disabled={busy || !values.date} type="submit" form={fieldId + '-form'}>
             {busy ? '记录中…' : '确认并记录'}
           </Btn>
         </>
       }
     >
-      <form onSubmit={submit} noValidate>
+      <form id={fieldId + '-form'} onSubmit={submit} noValidate>
         <p className="m-0 mb-4 text-[13px] text-ink-2">
           {item.title} · {CYCLES[reminderCycle(item)] || ''}
         </p>
-        <div className="grid sm:grid-cols-2 gap-3.5">
+        <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="grid gap-1.5 mb-1 text-[12px] text-ink-2">实际处理日期</label>
-            <input type="date" value={values.date} className={inputCls} onChange={(e) => update('date', e.target.value)} />
+            <Label htmlFor={fieldId + '-date'} className="mb-2.5 block">实际处理日期</Label>
+            <DatePicker id={fieldId + '-date'} label="实际处理日期" value={values.date} onChange={(value) => update('date', value)} />
           </div>
           <div>
-            <label className="grid gap-1.5 mb-1 text-[12px] text-ink-2">
+            <Label htmlFor={fieldId + '-amount'} className="mb-2.5 block">
               {item.category === 'asset' ? '复核后余额' : '本次实际费用（可留空）'}
-            </label>
-            <input
+            </Label>
+            <Input
+              id={fieldId + '-amount'}
               type="number"
               step="0.01"
               value={values.amount}
-              className={inputCls}
               onChange={(e) => update('amount', e.target.value)}
             />
           </div>
           <div>
-            <label className="grid gap-1.5 mb-1 text-[12px] text-ink-2">币种</label>
-            <input type="text" value={values.currency} className={inputCls} onChange={(e) => update('currency', e.target.value)} />
+            <Label htmlFor={fieldId + '-currency'} className="mb-2.5 block">币种</Label>
+            <Input id={fieldId + '-currency'} type="text" value={values.currency} onChange={(e) => update('currency', e.target.value)} />
           </div>
           {!once ? (
             <div>
-              <label className="grid gap-1.5 mb-1 text-[12px] text-ink-2">下次日期（留空停止提醒）</label>
-              <input type="date" value={values.nextDate} className={inputCls} onChange={(e) => update('nextDate', e.target.value)} />
+              <Label htmlFor={fieldId + '-next'} className="mb-2.5 block">下次日期（留空停止提醒）</Label>
+              <DatePicker id={fieldId + '-next'} label="下次日期（留空停止提醒）" value={values.nextDate} onChange={(value) => update('nextDate', value)} />
             </div>
           ) : null}
           <div className="sm:col-span-2">
-            <label className="grid gap-1.5 mb-1 text-[12px] text-ink-2">处理备注</label>
-            <textarea value={values.note} rows={3} className={inputCls + ' py-2 min-h-[70px]'} onChange={(e) => update('note', e.target.value)} />
+            <Label htmlFor={fieldId + '-note'} className="mb-2.5 block">处理备注</Label>
+            <Textarea id={fieldId + '-note'} value={values.note} rows={3} onChange={(e) => update('note', e.target.value)} />
           </div>
         </div>
         <p className="m-0 mt-3 text-[12px] text-ink-3">
@@ -106,7 +110,7 @@ export function CompleteModal({
             : '请核对下次日期；月底会顺延到目标月的最后一个有效日期。'}
           {item.category === 'broadband' ? '合约到期日保持独立，请续约后在编辑中更新。' : ''}
         </p>
-        {error ? <p className="m-0 mt-2 text-[12px] text-danger">{error}</p> : null}
+        {error ? <p role="alert" className="m-0 mt-3 text-xs text-destructive">{error}</p> : null}
       </form>
     </Modal>
   );
@@ -140,7 +144,7 @@ export function HistoryModal({
       {entries.length ? (
         <div className="grid gap-2.5">
           {entries.map((e, i) => (
-            <article key={i} className="rounded-xl bg-surface-soft border border-line px-4 py-3">
+            <Card role="article" key={i} className="rounded-xl bg-muted/40 px-4 py-3 shadow-none">
               <strong className="text-[13px] text-ink">
                 {e.action || '处理'}
                 {e.undoneAt ? '（已撤销）' : ''}
@@ -157,7 +161,7 @@ export function HistoryModal({
                 </div>
               ) : null}
               {e.note ? <p className="m-0 mt-1 text-[12px] text-ink-2">{e.note}</p> : null}
-            </article>
+            </Card>
           ))}
         </div>
       ) : (

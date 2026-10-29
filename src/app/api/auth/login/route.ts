@@ -11,6 +11,6 @@ export async function POST(req: NextRequest) {
     setSessionCookie(res, req, session.token, session.maxAgeSeconds);
     return res;
   } catch (e) {
-    return jsonError(e);
+    return jsonError(e, req);
   }
 }

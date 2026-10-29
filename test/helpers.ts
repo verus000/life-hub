@@ -22,6 +22,7 @@ export function setupEnv(): void {
   process.env.DB_FILE_NAME = path.join(os.tmpdir(), 'lifehub-test-env.db');
   process.env.APP_URL = 'http://127.0.0.1:3000';
   process.env.SESSION_TTL_DAYS = '7';
+  process.env.TRUST_PROXY = 'false';
   delete process.env.SMTP_HOST;
   resetConfigCache();
 }

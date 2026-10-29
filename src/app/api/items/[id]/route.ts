@@ -21,7 +21,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const item = await updateItem(getDb(), numericId(id), body, user.id, expected);
     return NextResponse.json(item);
   } catch (e) {
-    return jsonError(e);
+    return jsonError(e, req);
   }
 }
 
@@ -32,6 +32,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const item = await removeItem(getDb(), numericId(id), user.id);
     return NextResponse.json(item);
   } catch (e) {
-    return jsonError(e);
+    return jsonError(e, req);
   }
 }

@@ -26,7 +26,7 @@ export const sessions = sqliteTable(
   (t) => [index('sessions_user_idx').on(t.userId)],
 );
 
-/* 邮箱验证令牌：一次性，24 小时有效，使用后删除 */
+/* 邮箱验证令牌：一次性，24 小时有效，使用后删除；旧 verifications 表由 ensureSchema 搬入 */
 export const verificationTokens = sqliteTable(
   'verification_tokens',
   {

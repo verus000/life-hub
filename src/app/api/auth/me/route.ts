@@ -6,6 +6,6 @@ export async function GET(req: NextRequest) {
     const user = await requireUser(req);
     return NextResponse.json({ id: user.id, email: user.email, createdAt: user.createdAt });
   } catch (e) {
-    return jsonError(e);
+    return jsonError(e, req);
   }
 }

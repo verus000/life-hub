@@ -2,12 +2,21 @@
 
 /* 添加/编辑条目表单：由 Model.CATEGORIES 的字段定义驱动渲染 */
 
-import { useState } from 'react';
-import { CATEGORIES, addDays, get, reminderCycle, searchCountries, set, todayStr } from '@/lib/model';
+import { useId, useState } from 'react';
+import { CATEGORIES, get, reminderCycle, set } from '@/lib/model';
 import type { FieldDef } from '@/lib/model';
 import { clone, validate } from '@/lib/records';
 import type { Item, ItemInput } from '@/lib/types';
 import { Btn, Modal } from '@/components/ui';
+import { Icon } from '@/components/icons';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { SelectField } from '@/components/ui/select-field';
+import { CountryCombobox } from '@/components/ui/country-combobox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const PRIMARY_KEYS: Record<string, string[]> = {
   phone: ['title', 'provider', 'detail.country', 'detail.strategy', 'nextDate', 'detail.reminderCycle'],
@@ -22,134 +31,29 @@ const EXTRA_LABELS: Record<string, string> = {
   asset: '机构、复核日期与备注',
 };
 
-const inputCls =
-  'w-full min-h-[38px] px-3 rounded-[10px] border border-line-strong bg-white text-[13px] text-ink focus:outline-2 focus:outline-brand focus:border-brand';
-
-function CountrySuggest({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const hits = searchCountries(value).slice(0, 40);
-  return (
-    <div className="relative">
-      <input
-        type="text"
-        value={value}
-        autoComplete="off"
-        placeholder="输入中文或英文过滤"
-        className={inputCls}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setOpen(true);
-        }}
-      />
-      {open && hits.length > 0 && (
-        <div className="absolute z-10 left-0 right-0 mt-1 max-h-52 overflow-y-auto rounded-[10px] bg-surface border border-line shadow-lg">
-          {hits.map((c) => (
-            <button
-              type="button"
-              key={c[0]}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink hover:bg-surface-soft"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onChange(c[0]);
-                setOpen(false);
-              }}
-            >
-              <span>{c[2]}</span>
-              <span>{c[0]}</span>
-              <span className="text-[12px] text-ink-3">{c[1]}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function FieldRow({ f, value, onChange }: { f: FieldDef; value: string; onChange: (v: string) => void }) {
-  const chip = 'px-2.5 h-7 rounded-full border border-line text-[12px] text-ink-2 bg-surface hover:bg-brand-soft hover:text-brand';
+  const fieldId = useId();
   let control: React.ReactNode;
-
   if (f.type === 'select') {
-    const known = (f.options || []).some((o) => String(o[0]) === String(value));
-    control = (
-      <select value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
-        <option value="">请选择</option>
-        {!known && value ? <option value={value}>{value}</option> : null}
-        {(f.options || []).map((o) => (
-          <option key={o[0]} value={o[0]}>
-            {o[1]}
-          </option>
-        ))}
-      </select>
-    );
+    control = <SelectField id={fieldId} label={f.label} value={value} onChange={onChange} options={f.options || []} allowEmpty />;
   } else if (f.type === 'textarea') {
-    control = (
-      <textarea value={value} placeholder={f.placeholder || ''} rows={3} onChange={(e) => onChange(e.target.value)} className={inputCls + ' py-2 min-h-[70px]'} />
-    );
+    control = <Textarea id={fieldId} value={value} placeholder={f.placeholder || ''} rows={3} onChange={(e) => onChange(e.target.value)} />;
   } else if (f.type === 'country') {
-    control = <CountrySuggest value={value} onChange={onChange} />;
-  } else if (f.type === 'suggest') {
-    control = (
-      <>
-        <input type="text" value={value} placeholder={f.placeholder || ''} className={inputCls} onChange={(e) => onChange(e.target.value)} />
-        <div className="flex flex-wrap gap-1.5 mt-1.5">
-          {(f.presets || []).map((p) => (
-            <button key={p} type="button" className={chip} onClick={() => onChange(p)}>
-              {p}
-            </button>
-          ))}
-        </div>
-      </>
-    );
+    control = <CountryCombobox id={fieldId} value={value} onChange={onChange} />;
   } else if (f.type === 'date') {
-    control = (
-      <>
-        <input type="date" value={value} className={inputCls} onChange={(e) => onChange(e.target.value)} />
-        <div className="flex flex-wrap gap-1.5 mt-1.5">
-          {[7, 30, 90].map((n) => (
-            <button
-              key={n}
-              type="button"
-              className={chip}
-              onClick={() => onChange(addDays(value || todayStr(), n))}
-            >
-              +{n}天
-            </button>
-          ))}
-          <button type="button" className={chip} onClick={() => onChange(todayStr())}>
-            今天
-          </button>
-        </div>
-      </>
-    );
-  } else if (f.type === 'number') {
-    control = (
-      <input
-        type="number"
-        step="0.01"
-        value={value}
-        placeholder={f.placeholder || ''}
-        className={inputCls}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    );
+    control = <DatePicker id={fieldId} label={f.label} value={value} onChange={onChange} />;
   } else {
-    control = (
-      <input type="text" value={value} placeholder={f.placeholder || ''} className={inputCls} onChange={(e) => onChange(e.target.value)} />
-    );
+    control = <>
+      <Input id={fieldId} type={f.type === 'number' ? 'number' : 'text'} step={f.type === 'number' ? '0.01' : undefined} value={value} placeholder={f.placeholder || ''} onChange={(e) => onChange(e.target.value)} />
+      {f.type === 'suggest' && <div className="mt-2 flex flex-wrap gap-1.5">
+        {(f.presets || []).map((preset) => <Button key={preset} size="xs" variant="secondary" onClick={() => onChange(preset)}>{preset}</Button>)}
+      </div>}
+    </>;
   }
-
-  return (
-    <div className={f.full ? 'sm:col-span-2' : ''}>
-      <label className="grid gap-1.5 mb-1 text-[12px] text-ink-2">
-        {f.label}
-        {f.required ? <span className="text-danger">*</span> : null}
-      </label>
-      {control}
-    </div>
-  );
+  return <div className={f.full ? 'sm:col-span-2' : ''}>
+    <Label htmlFor={fieldId} className="mb-2.5 block">{f.label}{f.required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}</Label>
+    {control}
+  </div>;
 }
 
 export function ItemForm({
@@ -165,6 +69,7 @@ export function ItemForm({
   onConfirm: (draft: ItemInput) => void;
   onClose: () => void;
 }) {
+  const formId = useId();
   const def = CATEGORIES[category];
   const isEdit = !!item;
 
@@ -219,42 +124,43 @@ export function ItemForm({
   return (
     <Modal
       title={(isEdit ? '编辑' : '添加') + def.label}
+      description="填好必要信息，更多细节可以稍后补充。"
       onClose={busy ? () => undefined : onClose}
       footer={
         <>
           <Btn onClick={busy ? () => undefined : onClose} disabled={busy}>
             取消
           </Btn>
-          <Btn variant="primary" disabled={busy} onClick={submit as never}>
+          <Btn variant="primary" disabled={busy} type="submit" form={formId}>
             {busy ? '保存中…' : '保存'}
           </Btn>
         </>
       }
     >
-      <form onSubmit={submit} noValidate>
-        <div className="grid sm:grid-cols-2 gap-3.5">
+      <form id={formId} onSubmit={submit} noValidate>
+        <div className="grid gap-5 sm:grid-cols-2">
           {primary.map((f) => (
             <FieldRow key={f.key} f={f} value={values[f.key] ?? ''} onChange={(v) => update(f.key, v)} />
           ))}
         </div>
         {extra.length > 0 && (
-          <details className="mt-4 rounded-xl border border-line">
-            <summary className="cursor-pointer select-none px-4 py-3 text-[13px] text-ink-2 hover:text-ink">
-              {EXTRA_LABELS[category] || '更多字段'}
-            </summary>
-            <div className="grid sm:grid-cols-2 gap-3.5 px-4 pb-4">
+          <Collapsible className="group mt-6 rounded-xl border border-border">
+            <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto w-full justify-between rounded-xl px-4 py-3 text-[13px]">
+              {EXTRA_LABELS[category] || '更多字段'}<Icon name="chevron" className="size-4 group-data-[state=open]:rotate-180" />
+            </Button></CollapsibleTrigger>
+            <CollapsibleContent><div className="grid gap-5 px-4 pb-4 pt-2 sm:grid-cols-2">
               {extra.map((f) => (
                 <FieldRow key={f.key} f={f} value={values[f.key] ?? ''} onChange={(v) => update(f.key, v)} />
               ))}
-            </div>
-          </details>
+            </div></CollapsibleContent>
+          </Collapsible>
         )}
         {category === 'broadband' && isEdit && item && !('contractDate' in (item.detail || {})) ? (
           <p className="mt-3 text-[12px] text-ink-3">
             旧记录的到期日期保留在“下次续费日期”，请核对并补充独立的合约到期日。
           </p>
         ) : null}
-        {error ? <p className="mt-3 text-[12px] text-danger">{error}</p> : null}
+        {error ? <p role="alert" className="mt-4 text-xs text-destructive">{error}</p> : null}
       </form>
     </Modal>
   );

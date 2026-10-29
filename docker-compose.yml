@@ -13,7 +13,7 @@ services:
     ports:
       - "8787:3000"
     volumes:
-      - app-data:/data
+      - life-hub-data:/data
 
 volumes:
-  app-data:
+  life-hub-data:
