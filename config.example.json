@@ -1,0 +1,72 @@
+{
+  "_readme": "四种数据库的配置示例。选一种填入 config.json 的对应位置，并把 database.type 改为对应类型即可。",
+
+  "type_json": {
+    "说明": "零依赖，数据存为单个 JSON 文件，适合几十到几百条记录的个人使用",
+    "配置": {
+      "type": "json",
+      "json": { "file": "./data/items.json" }
+    }
+  },
+
+  "type_sqlite": {
+    "说明": "推荐。零依赖（Node 20+ 内置 node:sqlite），单文件数据库，适合长期使用",
+    "配置": {
+      "type": "sqlite",
+      "sqlite": { "file": "./data/life-hub.db" }
+    }
+  },
+
+  "type_mysql": {
+    "说明": "需先安装驱动：npm i mysql2",
+    "配置": {
+      "type": "mysql",
+      "mysql": {
+        "host": "127.0.0.1",
+        "port": 3306,
+        "user": "root",
+        "password": "你的密码",
+        "database": "life_hub"
+      }
+    },
+    "初始化": "CREATE DATABASE life_hub DEFAULT CHARACTER SET utf8mb4; 应用启动会自动建表"
+  },
+
+  "type_postgres": {
+    "说明": "需先安装驱动：npm i pg",
+    "配置": {
+      "type": "postgres",
+      "postgres": {
+        "host": "127.0.0.1",
+        "port": 5432,
+        "user": "postgres",
+        "password": "你的密码",
+        "database": "life_hub",
+        "ssl": false
+      }
+    },
+    "初始化": "CREATE DATABASE life_hub; 应用启动会自动建表"
+  },
+
+  "环境变量覆盖": {
+    "PORT": "服务端口，覆盖 server.port",
+    "HOST": "监听地址，覆盖 server.host",
+    "DB_TYPE": "覆盖 database.type",
+    "DB_FILE": "覆盖 json/sqlite 的 file",
+    "DB_HOST": "覆盖 mysql/postgres 的 host",
+    "DB_PORT": "覆盖 mysql/postgres 的 port",
+    "DB_USER": "覆盖 mysql/postgres 的 user",
+    "DB_PASSWORD": "覆盖 mysql/postgres 的 password",
+    "DB_NAME": "覆盖 mysql/postgres 的 database",
+    "DB_SSL": "仅 postgres：true 开启 SSL"
+  },
+
+  "认证与邮件（仅环境变量，建议写入 .env，参考 .env.example）": {
+    "MAIL_MODE": "smtp 真实发送 / console 打印验证链接到日志；未配置 SMTP_HOST 时默认 console",
+    "SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM": "邮箱验证邮件的发信配置",
+    "APP_URL": "拼接激活链接的对外地址，如 http://127.0.0.1:8787",
+    "SESSION_TTL_DAYS": "登录会话天数，默认 7（滑动续期）",
+    "BCRYPT_ROUNDS": "密码哈希强度，默认 10",
+    "COOKIE_NAME": "会话 Cookie 名，默认 life_hub_session"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "life-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "生活管理：手机号、宽带、停车费、资产分布盘点",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.js",
+    "test": "node tools/selftest.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "life",
+    "manager",
+    "sqlite"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^18.0.9",
+    "nodemailer": "^10.2.1"
+  }
+}

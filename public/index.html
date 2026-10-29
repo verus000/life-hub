@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>生活管理</title>
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="app-shell">
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10.5 12 4l8 6.5V20h-6v-6h-4v6H4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+    <span class="brand-text">生活管理</span>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary" id="btnAdd">＋ 添加</button>
+    <details class="utility-menu">
+      <summary class="btn btn-quiet" role="button">更多<span class="menu-caret" aria-hidden="true"></span></summary>
+      <div class="dropdown-panel">
+        <button id="btnCalendar">日历提醒</button>
+        <button id="btnBackup" aria-label="完整备份">备份全部记录</button>
+        <button id="btnImport" aria-label="导入数据">导入数据<span>CSV / JSON</span></button>
+        <button id="btnExport" aria-label="导出 CSV">导出表格<span>CSV</span></button>
+        <button id="btnLogout" aria-label="退出登录" hidden>退出登录</button>
+        <button class="danger-menu-item" onclick="UI.wipe()">清空全部数据</button>
+      </div>
+    </details>
+  </div>
+  <input type="file" id="fileInput" accept=".csv,.json,text/csv,application/json" hidden>
+</header>
+<nav class="tabs" id="tabs" aria-label="生活分类"></nav>
+<div class="workspace-content">
+<div class="page-heading" id="pageHeading"></div>
+<main id="main"></main>
+</div>
+<footer class="app-footer"><div id="storageStatus" class="storage-status" role="status" aria-live="polite">正在读取记录…</div></footer>
+</div>
+
+<div class="auth-gate" id="authGate" hidden>
+  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="auth-brand">
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10.5 12 4l8 6.5V20h-6v-6h-4v6H4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+      <span class="brand-text">生活管理</span>
+    </div>
+    <h2 class="auth-title" id="authTitle">登录</h2>
+
+    <form id="authViewLogin" autocomplete="on" novalidate>
+      <label>邮箱<input type="email" id="loginEmail" required autocomplete="email" placeholder="you@example.com"></label>
+      <label>密码<input type="password" id="loginPassword" required minlength="8" autocomplete="current-password" placeholder="至少 8 位"></label>
+      <button type="submit" class="btn btn-primary auth-submit" id="loginSubmit">登录</button>
+      <div class="auth-links">
+        <button type="button" class="text-button" data-auth-view="register">注册新账号</button>
+        <button type="button" class="text-button" data-auth-view="resend">重发验证邮件</button>
+      </div>
+    </form>
+
+    <form id="authViewRegister" hidden autocomplete="on" novalidate>
+      <label>邮箱<input type="email" id="regEmail" required autocomplete="email" placeholder="you@example.com"></label>
+      <label>密码<input type="password" id="regPassword" required minlength="8" autocomplete="new-password" placeholder="至少 8 位"></label>
+      <label>确认密码<input type="password" id="regPassword2" required minlength="8" autocomplete="new-password" placeholder="再次输入密码"></label>
+      <button type="submit" class="btn btn-primary auth-submit" id="regSubmit">注册</button>
+      <div class="auth-links"><button type="button" class="text-button" data-auth-view="login">已有账号，去登录</button></div>
+    </form>
+
+    <form id="authViewResend" hidden novalidate>
+      <label>注册邮箱<input type="email" id="resendEmail" required placeholder="you@example.com"></label>
+      <button type="submit" class="btn btn-primary auth-submit" id="resendSubmit">发送验证邮件</button>
+      <div class="auth-links"><button type="button" class="text-button" data-auth-view="login">返回登录</button></div>
+    </form>
+
+    <p class="auth-msg" id="authMsg" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<div class="mask" id="mask">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h2 id="modalTitle">添加</h2>
+      <button class="iconbtn" id="btnClose" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-body" id="formBody"></div>
+    <div class="modal-foot">
+      <button class="btn" id="btnCancel">取消</button>
+      <button class="btn btn-primary" id="btnSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="assets/js/records.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/model.js"></script>
+<script src="assets/js/chart.js"></script>
+<script src="assets/js/calendar.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
