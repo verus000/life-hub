@@ -1,25 +1,38 @@
 {
   "name": "life-hub",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "生活管理：手机号、宽带、停车费、资产分布盘点",
-  "main": "server.js",
+  "description": "生活管理：手机号、宽带、停车费、资产分布盘点（Next.js + Drizzle）",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server.js",
-    "test": "node tools/selftest.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5"
   },
-  "keywords": [
-    "life",
-    "manager",
-    "sqlite"
-  ],
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "dotenv": "^18.0.9",
-    "nodemailer": "^10.2.1"
+    "drizzle-orm": "1.0.0-rc.5",
+    "next": "^16.4.3",
+    "nodemailer": "^10.2.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "drizzle-kit": "1.0.0-rc.5",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.7"
   }
 }

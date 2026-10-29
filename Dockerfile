@@ -1,26 +1,29 @@
-# 生活管理 · Docker 镜像
+# Next.js standalone 多阶段构建：最终镜像只含运行所需文件
 # 构建：docker build -t life-hub .
-# 运行：docker run -p 8787:8787 --env-file .env -v life-hub-data:/app/data life-hub
-# 说明：默认 SQLite 依赖 Node 内置 node:sqlite，需 Node 22+ 基础镜像
-FROM node:22-alpine
-
+# 运行：docker run -p 8787:3000 --env-file .env -v life-hub-data:/data life-hub
+# 说明：SQLite 依赖 Node 内置 node:sqlite，需 Node 22.5+ 基础镜像
+FROM node:22-alpine AS deps
 WORKDIR /app
-
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-COPY server.js ./
-COPY src ./src
-COPY public ./public
-COPY tools ./tools
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 
-# 容器内默认监听所有网卡；数据落在 /app/data 卷中
-ENV HOST=0.0.0.0 \
-    PORT=8787 \
-    DB_TYPE=sqlite \
-    DB_FILE=/app/data/life-hub.db
-
-VOLUME /app/data
-EXPOSE 8787
-
-CMD ["node", "--disable-warning=ExperimentalWarning", "server.js"]
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+RUN mkdir -p /data && chown nextjs:nodejs /data
+USER nextjs
+EXPOSE 3000
+CMD ["node", "server.js"]
