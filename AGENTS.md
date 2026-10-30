@@ -13,7 +13,7 @@
 - 个人生活管理应用，包含手机号保活、宽带、停车费和资产分布，支持到期提醒、周期顺延、搜索筛选及 CSV 导入导出。
 - 多用户：邮箱注册（邮件验证激活）、登录会话（HttpOnly Cookie），数据按 `user_id` 隔离；首个完成激活的用户自动认领历史无归属数据。
 - 产品面向个人日常使用，界面以简单、直接、少干扰为优先：顶部分类导航，首页先展示最近安排，统计、筛选及补充字段按需展开。后续改版沿用这一定位。
-- 视觉采用已选定的“晴空朋友”：明亮浅蓝底、白色圆角卡片、晴空蓝主按钮、柠檬黄笑脸小太阳，辅以薄荷绿和浅紫色分类图标；使用轻量内联 SVG，不引入远程图片或字体。保持顶部分类导航、最近安排优先和统计按需展开，正文、日期及移动端操作保持清晰易读。
+- 视觉采用“晴空朋友”的现代科技版：中性冷灰底、近黑正文、电光蓝主色与高饱和语义色（小字对比度不低于 4.5:1），无描边细阴影的白色圆角卡片、下划线式分类导航、日历块日期（月份色带随到期状态变色）、柠檬黄内核的几何轨道表盘插画（外圈缓慢旋转），辅以薄荷绿和浅紫色分类图标；使用轻量内联 SVG，不引入远程图片或字体。保持顶部分类导航、最近安排优先和统计按需展开，正文、日期及移动端操作保持清晰易读。
 - 技术栈：Next.js 16（App Router、Route Handlers、standalone 输出）+ TypeScript 严格模式 + Drizzle ORM（`node-sqlite` 驱动，基于 Node 22 内置 `node:sqlite`，零原生编译）+ Tailwind CSS v4（CSS-first 配置）+ React 19。
 - 认证为自管会话（SHA-256 哈希令牌 + HttpOnly Cookie），未使用 Auth.js；密码哈希 `bcryptjs`，验证邮件 `nodemailer`。
 - 数据库只保留 SQLite 单库；旧版 JSON / MySQL / PostgreSQL 适配器已在 Next.js 迁移中移除。旧 SQLite 库自动补列并迁移认证令牌；旧 JSON 需先从旧版导出备份，再在新版登录后导入条目，详见 `UPGRADING.md`。
@@ -47,7 +47,7 @@
 | `src/components/Overview.tsx` / `CategoryList.tsx` | 统计卡 + 环形图、搜索（含 isComposing）/筛选/条目操作 |
 | `src/components/ActionModals.tsx` / `auth/AuthCard.tsx` / `ui.tsx` / `icons.tsx` | 处理与历史撤销弹窗、登录注册三视图、通用 UI 件、内联 SVG |
 | `src/components/ui/` / `src/lib/utils.ts` / `components.json` | shadcn/ui 源码组件、Radix 交互、中文日期与国家选择器、Sonner 通知；`cn` 合并 Tailwind 样式 |
-| `test/` | Vitest：records / model / db（建表与旧令牌迁移）/ auth / items / API 助手与路由 / 认证页面（含 StrictMode 激活请求）/ Docker 入口，共 75 项；`helpers.ts` 提供临时库与 outbox 令牌提取 |
+| `test/` | Vitest：records / model / db（建表与旧令牌迁移）/ auth / items / API 助手与路由 / 认证页面（含 StrictMode 激活请求）/ Docker 入口，共 78 项；`helpers.ts` 提供临时库与 outbox 令牌提取 |
 | `vitest.config.mts` | node 环境、`@` 别名（**必须是 .mts**，.ts 会被按 CJS 加载） |
 | `drizzle.config.ts` / `next.config.ts` / `tsconfig.json` / `postcss.config.mjs` | 工具链配置；`next.config.ts` 设 `output: 'standalone'`、`serverExternalPackages: ['nodemailer']` |
 | `Dockerfile` / `docker-compose.yml` / `.env.example` | 三阶段构建（standalone 运行时）、8787:3000 映射、`/data` 卷、环境变量参考 |
@@ -61,7 +61,7 @@ node --version          # 需要 >= 22.5（node:sqlite）
 npm install
 npm run dev             # 开发（http://localhost:3000）
 npm run build && npm start   # 生产（standalone）
-npm test                # Vitest 75 项
+npm test                # Vitest 78 项
 npm run typecheck       # tsc --noEmit
 ```
 
@@ -125,7 +125,7 @@ npm run typecheck       # tsc --noEmit
 
 ```powershell
 npm run typecheck   # tsc --noEmit
-npm test            # Vitest（75 项）
+npm test            # Vitest（78 项）
 npm run build       # 生产构建，15 个路由
 ```
 
@@ -141,3 +141,13 @@ npm run build       # 生产构建，15 个路由
 - 保留现有数据库、SQLite 的 `-wal` / `-shm` 文件及用户已有改动。不要清空、覆盖或把这些文件当作测试输出。
 - 临时服务使用独立的 `DB_FILE_NAME` 环境变量和空闲端口；不要对现有服务调用清空或删除接口来验证功能。
 - 需要新增配置示例时使用虚构值，避免在文档、日志或提交内容中写入真实凭据和个人记录。
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

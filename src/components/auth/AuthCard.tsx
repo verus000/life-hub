@@ -3,7 +3,7 @@
 /* 登录 / 注册 / 重发验证邮件：三视图切换卡片，沿用原有交互 */
 
 import { useState } from 'react';
-import { Logo, SunnyArtwork } from '@/components/icons';
+import { Logo, OrbitArtwork } from '@/components/icons';
 import { Btn } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -89,14 +89,14 @@ export function AuthCard({ initialView = 'login' }: { initialView?: View }) {
       <div className="w-full max-w-[420px] overflow-hidden rounded-[28px] bg-surface border border-line shadow-card">
         <div className="relative isolate overflow-hidden bg-hero px-7 pb-6 pt-7">
           <div className="relative z-10 flex items-center gap-2.5 text-brand">
-            <Logo className="h-9 w-9 -rotate-6" />
+            <Logo className="h-9 w-9" />
             <span className="text-base font-extrabold tracking-wide text-ink">生活管理</span>
           </div>
           <h1 className="relative z-10 m-0 mt-6 text-2xl font-extrabold text-hero-ink">{title}</h1>
           <p className="relative z-10 m-0 mt-2 max-w-[220px] text-[13px] text-hero-muted">
             {view === 'login' ? '把小日子，安排得明明白白。' : view === 'register' ? '记下生活的小事，给自己多一点从容。' : '填写邮箱，我们会再发一封验证邮件。'}
           </p>
-          <SunnyArtwork className="pointer-events-none absolute -bottom-4 -right-7 h-36 w-40 opacity-85" />
+          <OrbitArtwork className="pointer-events-none absolute -bottom-4 -right-7 h-36 w-40 opacity-85" />
         </div>
 
         <div className="px-7 pb-6 pt-6">

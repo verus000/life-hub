@@ -1,6 +1,6 @@
 'use client';
 
-/* 添加/编辑条目表单：由 Model.CATEGORIES 的字段定义驱动渲染 */
+/* 添加/编辑条目表单：字段定义来自 Model.CATEGORIES，版式由下方 LAYOUT 决定 */
 
 import { useId, useState } from 'react';
 import { CATEGORIES, get, reminderCycle, set } from '@/lib/model';
@@ -16,20 +16,49 @@ import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { SelectField } from '@/components/ui/select-field';
 import { CountryCombobox } from '@/components/ui/country-combobox';
+import { AmountField } from '@/components/ui/amount-field';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-const PRIMARY_KEYS: Record<string, string[]> = {
-  phone: ['title', 'provider', 'detail.country', 'detail.strategy', 'nextDate', 'detail.reminderCycle'],
-  broadband: ['title', 'amount', 'cycle', 'nextDate', 'detail.contractDate'],
-  parking: ['title', 'provider', 'detail.slot', 'amount', 'cycle', 'nextDate'],
-  asset: ['title', 'detail.assetType', 'amount', 'currency'],
+/* 表单版式：每类分成两三个小节，每行最多两个字段（宽屏并排、手机堆叠）。
+   MONEY 把金额和币种合成一个输入组；未列出的字段自动落到“更多信息”，新增字段不会丢。 */
+const MONEY = 'amount+currency';
+type Section = { title: string; rows: string[][] };
+const LAYOUT: Record<string, { sections: Section[]; more: string[][] }> = {
+  phone: {
+    sections: [
+      { title: '号码', rows: [['title'], ['provider', 'detail.country']] },
+      { title: '保活提醒', rows: [['nextDate', 'detail.reminderCycle'], ['detail.strategy']] },
+    ],
+    more: [[MONEY, 'cycle'], ['startDate'], ['note']],
+  },
+  broadband: {
+    sections: [
+      { title: '宽带', rows: [['title'], ['provider', 'detail.speed']] },
+      { title: '续费', rows: [['nextDate', 'cycle'], [MONEY], ['detail.contractDate', 'detail.autoRenew']] },
+    ],
+    more: [['detail.address'], ['detail.accountNo', 'startDate'], ['note']],
+  },
+  parking: {
+    sections: [
+      { title: '车位', rows: [['title'], ['provider', 'detail.slot']] },
+      { title: '缴费', rows: [['nextDate', 'cycle'], [MONEY, 'detail.cardType']] },
+    ],
+    more: [['detail.channel', 'startDate'], ['note']],
+  },
+  asset: {
+    sections: [
+      { title: '账户', rows: [['title'], ['detail.assetType', 'provider']] },
+      { title: '余额', rows: [[MONEY]] },
+    ],
+    more: [['nextDate', 'detail.reminderCycle'], ['note']],
+  },
 };
-const EXTRA_LABELS: Record<string, string> = {
-  phone: '费用、激活日期与备注',
-  broadband: '运营商、地址与其他信息',
-  parking: '卡片、缴费渠道与备注',
-  asset: '机构、复核日期与备注',
-};
+
+function FieldLabel({ htmlFor, f }: { htmlFor: string; f: FieldDef }) {
+  return <Label htmlFor={htmlFor} className="mb-2 block text-ink-2">
+    {f.label}{f.required && <span className="ml-0.5 text-destructive" aria-hidden="true">*</span>}
+  </Label>;
+}
 
 function FieldRow({ f, value, onChange }: { f: FieldDef; value: string; onChange: (v: string) => void }) {
   const fieldId = useId();
@@ -45,13 +74,17 @@ function FieldRow({ f, value, onChange }: { f: FieldDef; value: string; onChange
   } else {
     control = <>
       <Input id={fieldId} type={f.type === 'number' ? 'number' : 'text'} step={f.type === 'number' ? '0.01' : undefined} value={value} placeholder={f.placeholder || ''} onChange={(e) => onChange(e.target.value)} />
-      {f.type === 'suggest' && <div className="mt-2 flex flex-wrap gap-1.5">
-        {(f.presets || []).map((preset) => <Button key={preset} size="xs" variant="secondary" onClick={() => onChange(preset)}>{preset}</Button>)}
+      {/* 常用选项单行横向滚动，选中项高亮，不再把表单撑成好几行 */}
+      {f.type === 'suggest' && <div className="-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+        {(f.presets || []).map((preset) => <Button key={preset} size="xs" variant="outline"
+          aria-pressed={value === preset}
+          className={'shrink-0 rounded-full font-normal shadow-none ' + (value === preset ? 'border-brand bg-brand-soft text-brand' : 'text-ink-2')}
+          onClick={() => onChange(preset)}>{preset}</Button>)}
       </div>}
     </>;
   }
-  return <div className={f.full ? 'sm:col-span-2' : ''}>
-    <Label htmlFor={fieldId} className="mb-2.5 block">{f.label}{f.required && <span className="ml-1 text-destructive" aria-hidden="true">*</span>}</Label>
+  return <div className="min-w-0">
+    <FieldLabel htmlFor={fieldId} f={f} />
     {control}
   </div>;
 }
@@ -62,14 +95,17 @@ export function ItemForm({
   busy,
   onConfirm,
   onClose,
+  onRemove,
 }: {
   category: string;
   item: Item | null;
   busy: boolean;
   onConfirm: (draft: ItemInput) => void;
   onClose: () => void;
+  onRemove?: (id: number) => void;
 }) {
   const formId = useId();
+  const moneyId = useId();
   const def = CATEGORIES[category];
   const isEdit = !!item;
 
@@ -118,8 +154,29 @@ export function ItemForm({
     onConfirm(draft);
   }
 
-  const primary = def.fields.filter((f) => f.required || (PRIMARY_KEYS[category] || []).includes(f.key));
-  const extra = def.fields.filter((f) => !primary.includes(f));
+  const layout = LAYOUT[category] || { sections: [{ title: def.label, rows: [] }], more: [] };
+  const placed = new Set(layout.sections.flatMap((s) => s.rows).concat(layout.more).flat()
+    .flatMap((k) => (k === MONEY ? ['amount', 'currency'] : [k])));
+  const more = layout.more.concat(def.fields.filter((f) => !placed.has(f.key)).map((f) => [f.key]));
+  const fieldOf = (key: string) => def.fields.find((f) => f.key === key);
+  const moreLabels = more.flat().map((k) => fieldOf(k === MONEY ? 'amount' : k)?.label).filter(Boolean).join('、');
+
+  function cell(key: string) {
+    if (key === MONEY) {
+      const f = fieldOf('amount');
+      return f ? <div key={key} className="min-w-0">
+        <FieldLabel htmlFor={moneyId} f={f} />
+        <AmountField id={moneyId} label={f.label} amount={values.amount ?? ''} currency={values.currency ?? 'CNY'}
+          onAmount={(v) => update('amount', v)} onCurrency={(v) => update('currency', v)} />
+      </div> : null;
+    }
+    const f = fieldOf(key);
+    return f ? <FieldRow key={key} f={f} value={values[key] ?? ''} onChange={(v) => update(key, v)} /> : null;
+  }
+
+  const renderRows = (rows: string[][]) => rows.map((row) => (
+    <div key={row.join()} className={row.length > 1 ? 'grid gap-4 sm:grid-cols-2' : ''}>{row.map(cell)}</div>
+  ));
 
   return (
     <Modal
@@ -128,6 +185,12 @@ export function ItemForm({
       onClose={busy ? () => undefined : onClose}
       footer={
         <>
+          {/* 编辑时左下角提供删除，点击后走统一的二次确认弹窗 */}
+          {item && onRemove ? (
+            <Btn variant="quiet" className="mr-auto text-danger hover:bg-danger-soft hover:text-danger" disabled={busy} onClick={() => onRemove(item.id)}>
+              <Icon name="trash" />删除
+            </Btn>
+          ) : null}
           <Btn onClick={busy ? () => undefined : onClose} disabled={busy}>
             取消
           </Btn>
@@ -138,21 +201,23 @@ export function ItemForm({
       }
     >
       <form id={formId} onSubmit={submit} noValidate>
-        <div className="grid gap-5 sm:grid-cols-2">
-          {primary.map((f) => (
-            <FieldRow key={f.key} f={f} value={values[f.key] ?? ''} onChange={(v) => update(f.key, v)} />
+        <div className="grid gap-6">
+          {layout.sections.map((s) => (
+            <fieldset key={s.title} className="m-0 min-w-0 border-0 p-0">
+              <legend className="mb-3 flex w-full items-center gap-3 p-0 text-xs font-semibold text-ink-3">
+                {s.title}<span className="h-px flex-1 bg-line" aria-hidden="true" />
+              </legend>
+              <div className="grid gap-4">{renderRows(s.rows)}</div>
+            </fieldset>
           ))}
         </div>
-        {extra.length > 0 && (
-          <Collapsible className="group mt-6 rounded-xl border border-border">
-            <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto w-full justify-between rounded-xl px-4 py-3 text-[13px]">
-              {EXTRA_LABELS[category] || '更多字段'}<Icon name="chevron" className="size-4 group-data-[state=open]:rotate-180" />
+        {more.length > 0 && (
+          <Collapsible className="group mt-6">
+            <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto w-full justify-between gap-3 rounded-xl bg-surface-soft px-4 py-3 text-[13px] text-ink-2 hover:bg-brand-soft">
+              <span className="flex min-w-0 items-baseline gap-2">更多信息<span className="truncate font-normal text-ink-3">{moreLabels}</span></span>
+              <Icon name="chevron" className="size-4 group-data-[state=open]:rotate-180" />
             </Button></CollapsibleTrigger>
-            <CollapsibleContent><div className="grid gap-5 px-4 pb-4 pt-2 sm:grid-cols-2">
-              {extra.map((f) => (
-                <FieldRow key={f.key} f={f} value={values[f.key] ?? ''} onChange={(v) => update(f.key, v)} />
-              ))}
-            </div></CollapsibleContent>
+            <CollapsibleContent><div className="grid gap-4 pt-4">{renderRows(more)}</div></CollapsibleContent>
           </Collapsible>
         )}
         {category === 'broadband' && isEdit && item && !('contractDate' in (item.detail || {})) ? (

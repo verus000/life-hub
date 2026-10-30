@@ -3,10 +3,10 @@
 /* 分类列表：搜索与筛选工具栏、条目卡片、更多操作 */
 
 import { useId } from 'react';
-import { CATEGORIES, get, isActive, money, reminderCycle, statusOf } from '@/lib/model';
+import { CATEGORIES, dateLabel, get, isActive, moneyLabel, reminderCycle, statusOf } from '@/lib/model';
 import { CYCLES, STATUSES } from '@/lib/records';
 import type { Item } from '@/lib/types';
-import { Badge, Btn } from '@/components/ui';
+import { Badge, Btn, DateTile, DoneButton, STATUS_TEXT } from '@/components/ui';
 import { Icon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,10 +23,10 @@ const ACTION_LABEL: Record<string, string> = {
   asset: '记录复核',
 };
 const LIST_META: Record<string, string[]> = {
-  phone: ['detail.country', 'provider', 'amount', 'nextDate'],
-  broadband: ['provider', 'detail.speed', 'amount', 'nextDate'],
-  parking: ['provider', 'detail.slot', 'detail.cardType', 'amount', 'nextDate'],
-  asset: ['detail.assetType', 'provider', 'amount', 'nextDate'],
+  phone: ['detail.country', 'provider', 'amount'],
+  broadband: ['provider', 'detail.speed', 'amount'],
+  parking: ['provider', 'detail.slot', 'detail.cardType', 'amount'],
+  asset: ['detail.assetType', 'provider', 'amount'],
 };
 const DUE_FILTERS: Array<[string, string]> = [
   ['all', '全部到期状态'],
@@ -63,73 +63,91 @@ function ItemCard({
       if (!f) return null;
       let v = get(x, k);
       if (v === '' || v === null || v === undefined) return null;
-      if (f.type === 'number') v = money(Number(v), x.currency);
+      if (f.type === 'number') v = moneyLabel(Number(v), x.currency);
       if (f.type === 'select') {
         const o = (f.options || []).find((o) => String(o[0]) === String(v));
         v = o ? o[1] : v;
       }
-      if (k === 'detail.country') v = String(v);
-      return (
-        <span key={k} className="text-ink-3">
-          {f.label}：<b className="text-ink-2 font-medium">{String(v)}</b>
-        </span>
-      );
+      return String(v);
     })
     .filter(Boolean);
 
   const extra: string[] = [];
   if (category === 'phone') extra.push('保活：' + (CYCLES[reminderCycle(x)] || '每月'));
-  if (category === 'broadband' && (x.detail || {}).contractDate) extra.push('合约到期：' + x.detail.contractDate);
-  if ((x.detail || {}).lastCompletedAt) extra.push('最近处理：' + String(x.detail.lastCompletedAt));
+  if (category === 'broadband' && (x.detail || {}).contractDate) extra.push('合约到期：' + dateLabel(String(x.detail.contractDate)));
+  if ((x.detail || {}).lastCompletedAt) extra.push('最近处理：' + dateLabel(String(x.detail.lastCompletedAt)));
 
   const active = isActive(x);
+  const title = x.title || '(未命名)';
 
   return (
-    <Card role="article" className="grid grid-cols-[44px_minmax(0,1fr)] gap-x-3.5 gap-y-4 p-5 sm:grid-cols-[44px_minmax(0,1fr)_auto]">
-      <span className="category-icon" data-category={category}>
-        <Icon name={category} />
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <strong className="break-words text-[15px] font-semibold text-ink">{x.title || '(未命名)'}</strong>
-          {active && (def.hasDue || x.nextDate) ? (
-            <Badge tone={st.key}>{st.label}</Badge>
-          ) : (
-            <Badge tone="none">{STATUSES[x.status || 'active']}</Badge>
-          )}
+    <li className="flex gap-3 px-4 py-4 sm:gap-4 sm:px-5">
+      <DateTile date={x.nextDate} tone={active ? st.key : 'none'} />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {/* 标题即编辑入口，手机上省掉单独的编辑按钮 */}
+          <button type="button" className="break-words text-left text-[15px] font-semibold text-ink outline-none hover:text-brand focus-visible:text-brand" onClick={() => onOpenEdit(x.id)}>
+            {title}
+          </button>
+          {!active ? <Badge tone="none">{STATUSES[x.status || 'active']}</Badge> : null}
         </div>
-        {meta.length ? <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[12px]">{meta}</div> : null}
-        {extra.length ? <div className="mt-1 text-[12px] text-ink-3">{extra.join(' · ')}</div> : null}
-        {x.note ? <div className="mt-1 break-words text-xs text-ink-3">{x.note}</div> : null}
+        {active && (x.nextDate || def.hasDue) ? (
+          <div className="mt-0.5 text-[13px] text-ink-3">
+            <span className={STATUS_TEXT[st.key]}>{st.label}</span>
+            {x.nextDate ? <span className="hidden sm:inline">{' · ' + dateLabel(x.nextDate)}</span> : null}
+          </div>
+        ) : null}
+        {meta.length ? <div className="mt-1 break-words text-[13px] text-ink-2">{meta.join(' · ')}</div> : null}
+        {extra.length ? <div className="mt-0.5 text-[13px] text-ink-3">{extra.join(' · ')}</div> : null}
+        {x.note ? <div className="mt-0.5 break-words text-[13px] text-ink-3">{x.note}</div> : null}
       </div>
-      <div className="col-span-2 flex flex-wrap items-start gap-2 sm:col-span-1 sm:justify-end">
+      <div className="flex shrink-0 items-start gap-1">
         {active ? (
-          <Btn variant="soft" size="sm" onClick={() => onMarkDone(x.id)}>
-            {ACTION_LABEL[category]}
-          </Btn>
+          <DoneButton label={ACTION_LABEL[category]} title={title} onClick={() => onMarkDone(x.id)} />
         ) : (
-          <Btn size="sm" onClick={() => onChangeStatus(x.id, 'active')}>
+          <Btn onClick={() => onChangeStatus(x.id, 'active')}>
             恢复在用
           </Btn>
         )}
-        <Btn className="h-10 px-3" onClick={() => onOpenEdit(x.id)}>
-          编辑
-        </Btn>
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={'更多操作：' + (x.title || '')}><Icon name="more" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuLabel>条目操作</DropdownMenuLabel>
-            <DropdownMenuItem onSelect={() => onHistory(x.id)}><Icon name="history" />处理记录</DropdownMenuItem>
-            {active && <DropdownMenuItem onSelect={() => onChangeStatus(x.id, 'paused')}><Icon name="pause" />暂停条目</DropdownMenuItem>}
-            {x.status !== 'archived' && <DropdownMenuItem onSelect={() => onChangeStatus(x.id, 'archived')}><Icon name="archive" />归档条目</DropdownMenuItem>}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => onRemove(x.id)}><Icon name="trash" />删除条目</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button variant="ghost" size="icon" className="hidden sm:inline-flex" aria-label={'编辑：' + title} onClick={() => onOpenEdit(x.id)}>
+          <Icon name="edit" />
+        </Button>
+        <ItemMenu x={x} onOpenEdit={onOpenEdit} onHistory={onHistory} onChangeStatus={onChangeStatus} onRemove={onRemove} />
       </div>
-    </Card>
+    </li>
+  );
+}
+
+/* 条目管理菜单：编辑、处理记录、暂停、归档、删除；首页与分类列表共用 */
+export function ItemMenu({
+  x,
+  onOpenEdit,
+  onHistory,
+  onChangeStatus,
+  onRemove,
+}: {
+  x: Item;
+  onOpenEdit: (id: number) => void;
+  onHistory: (id: number) => void;
+  onChangeStatus: (id: number, status: string) => void;
+  onRemove: (id: number) => void;
+}) {
+  const active = isActive(x);
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label={'更多操作：' + (x.title || '')}><Icon name="more" /></Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuLabel>条目操作</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => onOpenEdit(x.id)}><Icon name="edit" />编辑条目</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onHistory(x.id)}><Icon name="history" />处理记录</DropdownMenuItem>
+        {active && <DropdownMenuItem onSelect={() => onChangeStatus(x.id, 'paused')}><Icon name="pause" />暂停条目</DropdownMenuItem>}
+        {x.status !== 'archived' && <DropdownMenuItem onSelect={() => onChangeStatus(x.id, 'archived')}><Icon name="archive" />归档条目</DropdownMenuItem>}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={() => onRemove(x.id)}><Icon name="trash" />删除条目</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -201,7 +219,7 @@ export function CategoryList({
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="relative min-w-0 flex-1 basis-[160px]">
-          <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Icon name="search" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             aria-label="搜索记录"
@@ -211,12 +229,12 @@ export function CategoryList({
               if (!(e.nativeEvent as InputEvent).isComposing) onKeyword(e.target.value);
             }}
             onCompositionEnd={(e) => onKeyword((e.target as HTMLInputElement).value)}
-            className="pl-9"
+            className="h-11 border-transparent bg-surface pl-10 shadow-card hover:border-line"
           />
         </div>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" aria-label={filterActive ? '筛选，已启用' : '筛选'}>
+            <Button variant="outline" className="h-11 border-transparent shadow-card" aria-label={filterActive ? '筛选，已启用' : '筛选'}>
               <Icon name="filter" />筛选
               {filterActive && <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />}
             </Button>
@@ -236,20 +254,22 @@ export function CategoryList({
       </div>
 
       {list.length ? (
-        <div className="grid gap-3.5">
-          {list.map((x) => (
-            <ItemCard
-              key={x.id}
-              x={x}
-              category={category}
-              onMarkDone={onMarkDone}
-              onOpenEdit={onOpenEdit}
-              onHistory={onHistory}
-              onChangeStatus={onChangeStatus}
-              onRemove={onRemove}
-            />
-          ))}
-        </div>
+        <Card className="overflow-hidden">
+          <ul className="m-0 list-none divide-y divide-line p-0">
+            {list.map((x) => (
+              <ItemCard
+                key={x.id}
+                x={x}
+                category={category}
+                onMarkDone={onMarkDone}
+                onOpenEdit={onOpenEdit}
+                onHistory={onHistory}
+                onChangeStatus={onChangeStatus}
+                onRemove={onRemove}
+              />
+            ))}
+          </ul>
+        </Card>
       ) : (
         <Card className="flex flex-col items-center px-5 py-12 text-center">
           <span className="category-icon mb-2" data-category={category}>
@@ -260,7 +280,7 @@ export function CategoryList({
           </span>
           <p className="m-0 mt-1.5 text-sm text-ink-3">{categoryTotal ? '换个关键词，或切换状态看看其他记录。' : '记下第一条，往后的安排就有了着落。'}</p>
           <Btn variant="primary" className="mt-5" onClick={() => onOpenAdd(category)}>
-            ＋ 添加{def.label}
+            <Icon name="plus" />添加{def.label}
           </Btn>
         </Card>
       )}

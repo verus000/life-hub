@@ -3,13 +3,13 @@
 /* 记录处理弹窗：保活 / 续费 / 缴费 / 复核 */
 
 import { useId, useState } from 'react';
-import { money, reminderCycle, shiftNext, todayStr } from '@/lib/model';
+import { dateLabel, moneyLabel, reminderCycle, shiftNext, statusOf, todayStr } from '@/lib/model';
 import { CYCLES } from '@/lib/records';
 import type { CompletionValues, Item } from '@/lib/types';
-import { Btn, Modal } from '@/components/ui';
-import { Input } from '@/components/ui/input';
+import { Btn, DateTile, Modal } from '@/components/ui';
 import { Textarea } from '@/components/ui/textarea';
 import { DatePicker } from '@/components/ui/date-picker';
+import { AmountField } from '@/components/ui/amount-field';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 
@@ -69,42 +69,45 @@ export function CompleteModal({
       }
     >
       <form id={fieldId + '-form'} onSubmit={submit} noValidate>
-        <p className="m-0 mb-4 text-[13px] text-ink-2">
-          {item.title} · {CYCLES[reminderCycle(item)] || ''}
-        </p>
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div>
-            <Label htmlFor={fieldId + '-date'} className="mb-2.5 block">实际处理日期</Label>
-            <DatePicker id={fieldId + '-date'} label="实际处理日期" value={values.date} onChange={(value) => update('date', value)} />
-          </div>
-          <div>
-            <Label htmlFor={fieldId + '-amount'} className="mb-2.5 block">
-              {item.category === 'asset' ? '复核后余额' : '本次实际费用（可留空）'}
-            </Label>
-            <Input
-              id={fieldId + '-amount'}
-              type="number"
-              step="0.01"
-              value={values.amount}
-              onChange={(e) => update('amount', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor={fieldId + '-currency'} className="mb-2.5 block">币种</Label>
-            <Input id={fieldId + '-currency'} type="text" value={values.currency} onChange={(e) => update('currency', e.target.value)} />
-          </div>
-          {!once ? (
-            <div>
-              <Label htmlFor={fieldId + '-next'} className="mb-2.5 block">下次日期（留空停止提醒）</Label>
-              <DatePicker id={fieldId + '-next'} label="下次日期（留空停止提醒）" value={values.nextDate} onChange={(value) => update('nextDate', value)} />
+        {/* 顶部摘要：正在处理哪一条、原定哪天到期 */}
+        <div className="mb-5 flex items-center gap-3 rounded-2xl bg-surface-soft p-3">
+          <DateTile date={item.nextDate} tone={statusOf(item).key} />
+          <div className="min-w-0">
+            <div className="break-words text-[15px] font-semibold text-ink">{item.title}</div>
+            <div className="mt-0.5 text-[13px] text-ink-3">
+              {item.nextDate ? '原定 ' + dateLabel(item.nextDate) : '未设日期'}{CYCLES[reminderCycle(item)] ? ' · ' + CYCLES[reminderCycle(item)] : ''}
             </div>
-          ) : null}
-          <div className="sm:col-span-2">
-            <Label htmlFor={fieldId + '-note'} className="mb-2.5 block">处理备注</Label>
-            <Textarea id={fieldId + '-note'} value={values.note} rows={3} onChange={(e) => update('note', e.target.value)} />
           </div>
         </div>
-        <p className="m-0 mt-3 text-[12px] text-ink-3">
+        <div className="grid gap-4">
+          <div className={once ? '' : 'grid gap-4 sm:grid-cols-2'}>
+            <div className="min-w-0">
+              <Label htmlFor={fieldId + '-date'} className="mb-2 block text-ink-2">实际处理日期</Label>
+              <DatePicker id={fieldId + '-date'} label="实际处理日期" value={values.date} onChange={(value) => update('date', value)} />
+            </div>
+            {!once ? (
+              <div className="min-w-0">
+                <Label htmlFor={fieldId + '-next'} className="mb-2 block text-ink-2">下次日期</Label>
+                <DatePicker id={fieldId + '-next'} label="下次日期" value={values.nextDate} onChange={(value) => update('nextDate', value)} />
+                <p className="m-0 mt-1.5 text-xs text-ink-3">留空则停止提醒</p>
+              </div>
+            ) : null}
+          </div>
+          <div className="min-w-0">
+            <Label htmlFor={fieldId + '-amount'} className="mb-2 block text-ink-2">
+              {item.category === 'asset' ? '复核后余额' : '本次费用'}
+              {item.category !== 'asset' ? <span className="ml-1.5 font-normal text-ink-3">可留空</span> : null}
+            </Label>
+            <AmountField id={fieldId + '-amount'} label={item.category === 'asset' ? '复核后余额' : '本次费用'}
+              amount={values.amount} currency={values.currency}
+              onAmount={(value) => update('amount', value)} onCurrency={(value) => update('currency', value)} />
+          </div>
+          <div className="min-w-0">
+            <Label htmlFor={fieldId + '-note'} className="mb-2 block text-ink-2">处理备注</Label>
+            <Textarea id={fieldId + '-note'} value={values.note} rows={2} onChange={(e) => update('note', e.target.value)} />
+          </div>
+        </div>
+        <p className="m-0 mt-4 text-xs leading-relaxed text-ink-3">
           {once
             ? '一次性事项完成后移入“已完成”，停止提醒。'
             : '请核对下次日期；月底会顺延到目标月的最后一个有效日期。'}
@@ -150,9 +153,9 @@ export function HistoryModal({
                 {e.undoneAt ? '（已撤销）' : ''}
               </strong>
               <div className="mt-1 text-[12px] text-ink-2">
-                {e.date || String(e.at || '').slice(0, 10)}
+                {dateLabel(e.date || String(e.at || '').slice(0, 10))}
                 {e.amount !== null && e.amount !== undefined
-                  ? ' · ' + currencyOf(e) + ' ' + money(e.amount, currencyOf(e))
+                  ? ' · ' + moneyLabel(Number(e.amount), currencyOf(e))
                   : ''}
               </div>
               {e.type === 'complete' ? (

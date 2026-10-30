@@ -4,7 +4,7 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Logo, SunnyArtwork } from '@/components/icons';
+import { Logo, OrbitArtwork } from '@/components/icons';
 import { Btn } from '@/components/ui';
 
 type VerificationResult = {
@@ -62,10 +62,10 @@ function VerifyBody() {
       <div className="w-full max-w-[420px] overflow-hidden rounded-[28px] bg-surface border border-line shadow-card text-center">
         <div className="flex flex-col items-center bg-hero px-7 pb-5 pt-7">
           <div className="flex items-center justify-center gap-2.5 text-brand">
-            <Logo className="h-9 w-9 -rotate-6" />
+            <Logo className="h-9 w-9" />
             <span className="text-base font-extrabold tracking-wide text-ink">生活管理</span>
           </div>
-          <SunnyArtwork className="mt-2 h-32 w-40" />
+          <OrbitArtwork className="mt-2 h-32 w-40" />
         </div>
         <div className="px-7 py-7">
           <h1 className="m-0 mb-3 text-xl font-bold text-ink">

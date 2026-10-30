@@ -286,7 +286,6 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
   }
 
   const meta = PAGE_META[tab] || PAGE_META.overview;
-  const day = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' });
   const counts: Record<string, number> = {};
   items.forEach((x) => {
     counts[x.category] = (counts[x.category] || 0) + 1;
@@ -298,15 +297,21 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
 
   return (
     <Tabs value={tab} onValueChange={switchTab} className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1088px] items-center gap-2 px-4 py-4 sm:gap-3 sm:px-8 sm:py-5">
-          <div className="mr-auto flex items-center gap-2.5 text-brand">
-            <Logo className="h-9 w-9 -rotate-6" />
-            <div>
-              <span className="block text-base font-extrabold tracking-wide text-ink sm:text-lg">生活管理</span>
-              <span className="block text-[10px] font-medium tracking-[0.18em] text-ink-3">LIFE HUB</span>
-            </div>
+      {/* 顶栏：宽屏单行（标识 · 分类 · 操作），手机两行；分类下划线贴住顶栏底边 */}
+      <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
+        <div className="mx-auto flex w-full max-w-[1088px] flex-wrap items-center gap-x-2 px-4 pt-3 sm:flex-nowrap sm:gap-x-3 sm:px-8 sm:pt-0">
+          <div className="mr-auto flex items-center gap-2.5 text-brand sm:mr-0 sm:py-4">
+            <Logo className="h-8 w-8" />
+            <span className="text-base font-bold tracking-wide text-ink">生活管理</span>
           </div>
+          <nav className="order-last mt-1 w-full sm:order-none sm:mt-0 sm:ml-8 sm:mr-auto sm:w-auto sm:self-stretch" aria-label="生活分类">
+            <TabsList className="grid h-full w-full grid-cols-5 items-stretch gap-0 rounded-none bg-transparent p-0 sm:flex sm:gap-7">
+              {tabs.map((entry) => <TabsTrigger key={entry.key} value={entry.key} className="h-full min-w-0 rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-2 text-sm text-ink-3 hover:text-ink focus-visible:bg-brand-soft focus-visible:ring-0 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ink data-[state=active]:shadow-none sm:px-0 sm:py-0">
+                {entry.label}
+                {entry.count > 0 && <span className="hidden rounded-full bg-surface-soft px-1.5 text-xs font-medium text-ink-3 sm:inline">{entry.count}</span>}
+              </TabsTrigger>)}
+            </TabsList>
+          </nav>
           <Btn variant="primary" onClick={() => openAdd()}>
             <Icon name="plus" className="h-4 w-4" />
             <span>添加<span className="hidden sm:inline">安排</span></span>
@@ -337,36 +342,22 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
         </div>
       </header>
 
-      <div className="bg-surface border-b border-line/70">
-        <nav className="mx-auto w-full max-w-[1088px] px-4 pb-4 sm:px-8" aria-label="生活分类">
-          <TabsList aria-label="生活分类" className="grid w-full max-w-full grid-cols-5 sm:inline-flex sm:w-auto">
-            {tabs.map((entry) => <TabsTrigger key={entry.key} value={entry.key} className="min-w-0 px-1.5 sm:px-3">
-              <Icon name={entry.key === 'overview' ? 'sun' : entry.key} className="hidden size-4 sm:block" />
-              {entry.label}
-              {entry.count > 0 && <span className="hidden text-[11px] opacity-80 sm:inline">{entry.count}</span>}
-            </TabsTrigger>)}
-          </TabsList>
-        </nav>
-      </div>
-
-      <main className="flex-1 w-full max-w-[1024px] mx-auto px-4 py-6 sm:px-8 sm:py-8">
+      <main className="flex-1 w-full max-w-[1088px] mx-auto px-4 py-6 sm:px-8 sm:py-8">
         {tabs.map(({ key }) => <TabsContent key={key} value={key} className="space-y-5">
           {key === tab && <>
-            {tab !== 'overview' ? <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h1 className="m-0 text-[22px] font-extrabold text-ink">{meta.label}</h1>
-                <p className="m-0 mt-1 text-sm text-ink-3">{meta.desc}</p>
-              </div>
-              <div className="flex items-center gap-1.5 text-[13px] text-ink-3 shrink-0">
-                <Icon name="calendar" className="w-4 h-4" />
-                <span>{day}</span>
+            {tab !== 'overview' ? <div className="flex items-center gap-3.5">
+              <span className="category-icon" data-category={tab}><Icon name={tab} className="size-5" /></span>
+              <div className="min-w-0">
+                <h1 className="m-0 flex items-baseline gap-2 text-xl font-bold text-ink sm:text-2xl">
+                  {meta.label}<span className="text-sm font-medium text-ink-3">{counts[tab] || 0} 条</span>
+                </h1>
+                <p className="m-0 mt-0.5 text-[13px] text-ink-3 sm:text-sm">{meta.desc}</p>
               </div>
             </div> : null}
 
             {tab === 'overview' ? (
               <Overview
                 items={items}
-                dateLabel={day}
                 onMarkDone={(id) => {
                   const x = items.find((i) => i.id === id);
                   if (x) setCompleteTarget(x);
@@ -374,6 +365,12 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
                 onOpenEdit={openEdit}
                 onOpenAdd={openAdd}
                 onGotoTab={switchTab}
+                onHistory={(id) => {
+                  const x = items.find((i) => i.id === id);
+                  if (x) setHistoryTarget(x);
+                }}
+                onChangeStatus={changeStatus}
+                onRemove={removeItem}
               />
             ) : (
               <CategoryList
@@ -403,7 +400,7 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
         </TabsContent>)}
       </main>
 
-      <footer className="mx-auto flex w-full max-w-[1024px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 pb-6 pt-2 text-xs text-ink-3 sm:px-8">
+      <footer className="mx-auto flex w-full max-w-[1088px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 pb-6 pt-2 text-xs text-ink-3 sm:px-8">
         <div>
           <p className="m-0 font-medium">小事有着落，生活更轻松。</p>
           <p className="m-0 mt-1">{offline ? '暂时无法连接，展示最近加载的记录' : '记录已同步'}</p>
@@ -440,6 +437,10 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
           busy={busy}
           onConfirm={saveItem}
           onClose={() => setFormState(null)}
+          onRemove={(id) => {
+            setFormState(null);
+            removeItem(id);
+          }}
         />
       ) : null}
 

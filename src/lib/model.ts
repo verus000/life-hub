@@ -165,6 +165,13 @@ export function addDays(dateStr: string, n: number): string {
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
 
+/* 业务日期展示为“2026年10月20日”，直接拆字符串，避免时区偏移；非法值原样返回。 */
+export function dateLabel(dateStr: string): string {
+  if (!validDate(dateStr)) return dateStr;
+  const [y, m, d] = dateStr.split('-');
+  return y + '年' + Number(m) + '月' + Number(d) + '日';
+}
+
 export function diffDays(dateStr: string): number | null {
   const a = new Date(todayStr() + 'T00:00:00');
   const b = new Date(dateStr + 'T00:00:00');
@@ -207,6 +214,16 @@ export function money(n: number | null | undefined, currency?: string): string {
       ? v.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
       : String(Math.round(v * 100) / 100);
   return sym + txt;
+}
+
+/* 展示用金额：符号唯一时只显示符号；无符号或与其他币种共用符号（如 JPY 的 ¥）时补币种代码，CNY 视为默认币种。 */
+export function moneyLabel(n: number | null | undefined, currency?: string): string {
+  const code = currency || 'CNY';
+  const txt = money(n, code);
+  if (!txt) return '';
+  const sym = CURRENCY_SYMBOL[code];
+  const shared = !!sym && code !== 'CNY' && Object.keys(CURRENCY_SYMBOL).some((k) => k !== code && CURRENCY_SYMBOL[k] === sym);
+  return !sym || shared ? code + ' ' + txt : txt;
 }
 
 export function flagOf(country: string): string {
@@ -328,5 +345,5 @@ export function totals(items: Item[], annual?: boolean): string {
     const currency = x.currency || 'CNY';
     sums[currency] = (sums[currency] || 0) + (annual ? annualAmount(x) : Number(x.amount) || 0);
   });
-  return Object.keys(sums).sort().map((currency) => currency + ' ' + money(sums[currency], currency)).join(' · ');
+  return Object.keys(sums).sort().map((currency) => moneyLabel(sums[currency], currency)).join(' · ');
 }

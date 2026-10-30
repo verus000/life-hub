@@ -4,7 +4,7 @@
 import { get } from './model';
 import type { Item } from './types';
 
-export const PALETTE = ['#5271E8', '#78A1EE', '#6BB8A4', '#E5B87E', '#A493D2', '#80B7CE', '#BF927C', '#9CA6BA'];
+export const PALETTE = ['#3B5BFD', '#22B8CF', '#7C5CFF', '#12B76A', '#F5A524', '#F04F88', '#5E9BFF', '#98A2B3'];
 
 export function colorAt(i: number): string {
   return PALETTE[i % PALETTE.length];

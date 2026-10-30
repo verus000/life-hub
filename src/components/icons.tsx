@@ -10,6 +10,7 @@ const ICONS: Record<string, ReactNode> = {
   logout: <path d="M9 4H4v16h5m5-12 4 4-4 4m-6-4h10" />,
   history: <path d="M3 11a9 9 0 1 1 2 7M3 4v7h7m2-5v6l4 2" />,
   pause: <path d="M8 5v14M16 5v14" />,
+  edit: <path d="M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4" />,
   archive: <><rect x="3" y="3" width="18" height="5" rx="1" /><path d="M5 8v13h14V8m-10 4h6" /></>,
   filter: <path d="M4 6h16M7 12h10m-7 6h4" />,
   sun: (
@@ -96,35 +97,38 @@ export function Icon({ name, className = 'w-5 h-5' }: { name: string; className?
   );
 }
 
-/* 品牌 Logo：主页顶部与登录卡片共用 */
+/* 品牌 Logo：轨道表盘的缩小版（270° 轨道弧 + 黄色内核 + 缺口处的卫星点），主页顶部与登录卡片共用 */
 export function Logo({ className = 'w-6 h-6' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="1" y="1" width="22" height="22" rx="8" fill="currentColor" />
-      <path d="M8 9v2m8-2v2m-7 4c1.6 1.6 4.4 1.6 6 0" stroke="var(--color-surface)" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="1" y="1" width="22" height="22" rx="7" fill="currentColor" />
+      <path d="M12 6.5a5.5 5.5 0 1 1-5.5 5.5" stroke="var(--color-surface)" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="2.2" fill="var(--color-sun)" />
+      <circle cx="8.1" cy="8.1" r="1.3" fill="var(--color-surface)" />
     </svg>
   );
 }
 
-/* 晴空朋友：纯内联插画，颜色与全站 token 同步。 */
-export function SunnyArtwork({ className = 'h-48 w-56' }: { className?: string }) {
+/* 轨道表盘：黄色内核代表“今天”，蓝色进度弧与外圈轨道点代表周期提醒；外圈缓慢旋转，
+   减少动效时由 globals.css 的 prefers-reduced-motion 规则停住。颜色与全站 token 同步。 */
+export function OrbitArtwork({ className = 'h-48 w-56' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 240 210" fill="none" aria-hidden="true">
-      <circle cx="134" cy="112" r="82" fill="var(--color-sky)" />
-      <path d="M177 38h27a12 12 0 0 1 0 24h-42a10 10 0 0 1-1-20 16 16 0 0 1 16-4Z" fill="var(--color-surface)" />
-      <path d="m40 42 4 9 9 4-9 4-4 9-4-9-9-4 9-4 4-9Z" fill="var(--color-brand)" opacity=".45" />
-      <circle cx="206" cy="147" r="5" fill="var(--color-surface)" />
-      <ellipse cx="132" cy="178" rx="48" ry="10" fill="var(--color-hero-ink)" opacity=".08" />
-      <g transform="rotate(9 130 112)">
-        <path d="M81 112c-21-4-25 9-14 16l15 5m99-21c21-4 25 9 14 16l-15 5" fill="var(--color-sun)" />
-        <circle cx="130" cy="111" r="57" fill="var(--color-sun-shade)" />
-        <ellipse cx="127" cy="106" rx="55" ry="53" fill="var(--color-sun)" />
-        <path d="M112 99v7m34-7v7" stroke="var(--color-ink)" strokeWidth="5" strokeLinecap="round" />
-        <path d="M120 120c5 6 14 6 19 0" stroke="var(--color-ink)" strokeWidth="3" strokeLinecap="round" />
-        <ellipse cx="101" cy="119" rx="9" ry="5" fill="var(--color-cheek)" opacity=".8" />
-        <ellipse cx="158" cy="119" rx="9" ry="5" fill="var(--color-cheek)" opacity=".8" />
+      <circle cx="130" cy="105" r="92" fill="var(--color-brand-soft)" />
+      <circle cx="130" cy="105" r="58" stroke="var(--color-sky)" strokeWidth="6" />
+      <path d="M130 47a58 58 0 1 1-50.2 87" stroke="var(--color-brand)" strokeWidth="6" strokeLinecap="round" />
+      <circle cx="79.8" cy="134" r="6" fill="var(--color-surface)" stroke="var(--color-brand)" strokeWidth="3" />
+      <g className="origin-center animate-[spin_48s_linear_infinite] [transform-box:fill-box]">
+        <circle cx="130" cy="105" r="80" stroke="var(--color-line-strong)" strokeWidth="1.5" strokeDasharray="2 7" strokeLinecap="round" />
+        <path d="M205.2 132.4a80 80 0 0 1-47.8 47.8" stroke="var(--color-lilac-ink)" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="191.3" cy="53.6" r="6" fill="var(--color-brand)" />
+        <circle cx="54.8" cy="132.4" r="4" fill="var(--color-mint-ink)" />
       </g>
-      <path d="M56 154h17a10 10 0 0 1 0 20H43a9 9 0 0 1-1-18 14 14 0 0 1 14-2Z" fill="var(--color-surface)" />
+      <circle cx="130" cy="105" r="30" fill="var(--color-sun)" />
+      <circle cx="130" cy="105" r="30" stroke="var(--color-sun-shade)" strokeWidth="2" />
+      <circle cx="130" cy="105" r="9" fill="var(--color-surface)" />
+      <path d="M36 30v20M26 40h20" stroke="var(--color-brand)" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="214" cy="178" r="3" fill="var(--color-brand)" opacity=".5" />
     </svg>
   );
 }

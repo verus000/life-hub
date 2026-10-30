@@ -50,43 +50,45 @@
 }
 
 @theme {
-  --color-bg: #F3F8FF;
+  /* 现代科技感：中性冷灰底 + 近黑正文 + 电光蓝强调；语义色取高饱和、去土色。
+     小号文字颜色均已核对白底对比度 ≥ 4.5:1。 */
+  --color-bg: #F5F6F8;
   --color-surface: #FFFFFF;
-  --color-surface-soft: #F1F6FF;
-  --color-line: #E4EBF6;
-  --color-line-strong: #CEDBF0;
-  --color-ink: #23314D;
-  --color-ink-2: #526481;
-  --color-ink-3: #60718A;
-  --color-brand: #286DF2;
-  --color-brand-hover: #1F5DCF;
-  --color-brand-soft: #EDF3FF;
-  --color-hero: #DFEDFF;
-  --color-hero-ink: #24498B;
-  --color-hero-muted: #486690;
-  --color-sky: #C5DFFF;
-  --color-sun: #FFDC70;
-  --color-sun-shade: #F6CA50;
-  --color-cheek: #F49F76;
-  --color-mint: #E4F7ED;
-  --color-mint-ink: #267653;
-  --color-lemon: #FFF2D7;
-  --color-lemon-ink: #89601B;
-  --color-lilac: #F1EAFF;
-  --color-lilac-ink: #7952C8;
-  --color-danger: #AD4B3B;
-  --color-danger-soft: #FFF0EC;
-  --color-warn: #94531F;
-  --color-warn-soft: #FFF0DA;
-  --color-ok: #246D4D;
-  --color-ok-soft: #E5F6EC;
-  --color-overlay: #23314D55;
+  --color-surface-soft: #F2F3F6;
+  --color-line: #E5E7EB;
+  --color-line-strong: #D1D5DC;
+  --color-ink: #0E1116;
+  --color-ink-2: #474E5B;
+  --color-ink-3: #626978;
+  --color-brand: #3B5BFD;
+  --color-brand-hover: #2D4AE6;
+  --color-brand-soft: #EEF1FF;
+  --color-hero: #EEF1FF;
+  --color-hero-ink: #1D2A7A;
+  --color-hero-muted: #4A548F;
+  --color-sky: #DDE4FF;
+  --color-sun: #FFD54F;
+  --color-sun-shade: #F5BF2E;
+  --color-cheek: #FF9A7A;
+  --color-mint: #E6F8EE;
+  --color-mint-ink: #12733A;
+  --color-lemon: #FFF4D6;
+  --color-lemon-ink: #A44D06;
+  --color-lilac: #F2EDFF;
+  --color-lilac-ink: #6D35E0;
+  --color-danger: #C9281C;
+  --color-danger-soft: #FEEEEC;
+  --color-warn: #B54708;
+  --color-warn-soft: #FFF4D6;
+  --color-ok: #12733A;
+  --color-ok-soft: #E6F8EE;
+  --color-overlay: #0E111666;
 
-  --shadow-card: 0 6px 28px #4778B309;
-  --shadow-popover: 0 12px 36px #23314D18;
-  --shadow-dialog: 0 24px 80px #23314D26;
+  --shadow-card: 0 0 0 1px #0E11160D, 0 1px 2px #0E11160A, 0 8px 24px -6px #0E11160F;
+  --shadow-popover: 0 0 0 1px #0E11160F, 0 12px 32px -4px #0E11161F;
+  --shadow-dialog: 0 0 0 1px #0E11160F, 0 24px 64px -8px #0E111633;
 
-  --font-sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-sans: "Inter", "Segoe UI Variable Text", "Segoe UI Variable", -apple-system, "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
 }
 
 @layer base {
