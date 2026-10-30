@@ -14,7 +14,7 @@ async function main() {
   process.loadEnvFile(config);
   if (process.env.APP_ENV !== environment) throw new Error('迁移环境与配置不匹配');
   const target = databaseTarget(process.env, 'migration');
-  const client = new pg.Client({ connectionString: target.url, connectionTimeoutMillis: 5000 });
+  const client = new pg.Client({ connectionString: target.url, ssl: false, connectionTimeoutMillis: 5000 });
   try {
     await client.connect();
     const identity = (await client.query('SELECT current_database() AS database, current_user AS "user"')).rows[0];

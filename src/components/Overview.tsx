@@ -2,16 +2,13 @@
 
 /* 总览：优先事项 + 近期安排，支出与资产按需展开。 */
 
-import { CATEGORIES, cycleLabel, dueEntries, isActive, moneyLabel, statusOf, totals } from '@/lib/model';
+import { CATEGORIES, categoryAction, categoryMetadata, cycleLabel, dueEntries, isActive, moneyLabel, statusOf, totals } from '@/lib/model';
 import type { DueEntry, Item } from '@/lib/types';
 import { Btn, DateTile, DoneButton, STATUS_TEXT } from '@/components/ui';
 import { Icon } from '@/components/icons';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-const ACTION_LABEL: Record<string, string> = {
-  phone: '记录保活', broadband: '记录续费', parking: '记录缴费', asset: '记录复核',
-};
 
 export function Overview({
   items, onMarkDone, onOpenEdit, onOpenAdd, onGotoTab,
@@ -47,8 +44,7 @@ export function Overview({
       {entries.map((entry) => {
         const item = entry.x;
         const status = statusOf({ nextDate: entry.date } as Item);
-        const metadata = item.category === 'asset' ? String(item.detail?.assetType || item.provider || '资产分布')
-          : [item.provider, item.category === 'broadband' ? item.detail?.speed : item.category === 'parking' ? item.detail?.slot : '手机号'].filter(Boolean).join(' · ');
+        const metadata = categoryMetadata(item);
         return <li key={item.id + '-' + entry.kind} className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 py-3.5 sm:grid-cols-[72px_minmax(0,1fr)_auto] sm:gap-5 sm:py-10">
           <div className="self-start pt-0.5 sm:self-center"><DateTile date={entry.date} tone={status.key} /></div>
           <div className="relative min-w-0 border-l border-line pl-3 sm:pl-14">
@@ -65,7 +61,7 @@ export function Overview({
               {item.category === 'parking' && item.amount !== null && item.amount !== undefined && <span className="text-ink-2"> · {moneyLabel(item.amount, item.currency)}{cycleLabel(item.cycle) ? ' / ' + cycleLabel(item.cycle).replace(/^每/, '') : ''}</span>}
             </p>
           </div>
-          <DoneButton label={entry.kind === 'contract' ? '查看合约' : ACTION_LABEL[item.category]} icon="edit" title={item.title} onClick={() => entry.kind === 'contract' ? onOpenEdit(item.id) : onMarkDone(item.id)} />
+          <DoneButton label={entry.kind === 'contract' ? '查看合约' : '记录' + categoryAction(item.category, item.detail)} icon="edit" title={item.title} onClick={() => entry.kind === 'contract' ? onOpenEdit(item.id) : onMarkDone(item.id)} />
         </li>;
       })}
     </ul>;
@@ -103,7 +99,7 @@ export function Overview({
     </> : <section className="flex min-h-64 flex-col items-center justify-center py-10 text-center" aria-label="暂无安排">
       <Icon name="calendar" className="mb-4 size-9 text-brand" />
       <h2 className="m-0 text-lg font-semibold text-ink">{items.length ? '暂时没有到期事项' : '还没有安排'}</h2>
-      <p className="m-0 mt-2 text-sm text-ink-2">{items.length ? '有新安排时，随手记下来。' : '记下一个号码，或下一次缴费日期。'}</p>
+      <p className="m-0 mt-2 text-sm text-ink-2">{items.length ? '有新安排时，随手记下来。' : '记下一张卡片，或下一次缴费日期。'}</p>
       <Btn variant="primary" className="mt-5" onClick={() => onOpenAdd()}><Icon name="plus" />添加安排</Btn>
     </section>}
 

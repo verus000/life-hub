@@ -3,7 +3,6 @@ import { z } from 'zod';
 /* 集中环境变量校验：Next.js 自动加载 .env，这里只做归并与快速失败 */
 
 const envSchema = z.object({
-  DB_FILE_NAME: z.string().default('data/life-hub.db'),
   APP_URL: z.string().default(''),
   TRUST_PROXY: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
   MAIL_MODE: z.enum(['console', 'smtp']).default('console'),

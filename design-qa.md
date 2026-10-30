@@ -69,7 +69,7 @@ final result: passed
 - npm run typecheck：通过。
 - npm test：11 个测试文件、82 项通过。新增总览分组/合约/后续安排与公开装饰访问回归，并扩充币种显示断言。
 - npm run build：通过，15 个路由。
-- 使用 .next/standalone/server.js 和独立 DB_FILE_NAME 在 127.0.0.1:4173 完成生产运行冒烟；没有单独运行 npm start。
+- 早期界面核验使用 standalone 服务在 127.0.0.1:4173 完成；当前数据库与测试方式以 README / DATABASE 为准，旧文件存储入口已移除。
 - git diff --check：通过（仅存在 Git 的 LF/CRLF 提示，无空白错误）。
 
 ## 有意保留的差异与 P3

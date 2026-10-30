@@ -24,6 +24,11 @@ export type HistoryEntry = {
 export type ItemDetail = {
   recordKey?: string;
   country?: string;
+  simType?: string;
+  phoneNumber?: string;
+  reminderKind?: string;
+  planName?: string;
+  coverage?: string;
   strategy?: string;
   reminderCycle?: string;
   reminderAnchor?: number;

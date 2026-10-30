@@ -3,7 +3,7 @@
 /* 记录处理弹窗：保活 / 续费 / 缴费 / 复核 */
 
 import { useId, useState } from 'react';
-import { dateLabel, moneyLabel, reminderCycle, shiftNext, statusOf, todayStr } from '@/lib/model';
+import { categoryAction, dateLabel, moneyLabel, reminderCycle, shiftNext, statusOf, todayStr } from '@/lib/model';
 import { CYCLES } from '@/lib/records';
 import type { CompletionValues, Item } from '@/lib/types';
 import { Btn, Modal, STATUS_TEXT } from '@/components/ui';
@@ -55,7 +55,7 @@ export function CompleteModal({
 
   return (
     <Modal
-      title={'记录' + (item.category === 'phone' ? '保活' : item.category === 'broadband' ? '续费' : item.category === 'parking' ? '缴费' : '复核')}
+      title={'记录' + categoryAction(item.category, item.detail)}
       description={item.title}
       onClose={busy ? () => undefined : onClose}
       footer={

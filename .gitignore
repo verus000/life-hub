@@ -22,5 +22,5 @@ next-env.d.ts
 # 工作区元数据
 .workbuddy/
 
-# drizzle-kit 生成产物（运行时建表走 ensureSchema，不依赖这些迁移）
+# drizzle-kit 生成的审查草稿；执行入口只使用 migrations/ 下的已审查 SQL
 drizzle/

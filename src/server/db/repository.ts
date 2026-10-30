@@ -1,5 +1,5 @@
 import { getTableColumns, getTableName, sql, type SQL } from 'drizzle-orm';
-import { items, sessions, users, verificationTokens } from './pg-schema';
+import { items, sessions, users, verificationTokens } from './schema';
 
 const tables = { items, sessions, users, verificationTokens };
 type Tables = typeof tables;
@@ -9,7 +9,7 @@ type Insert<K extends Name> = Tables[K]['$inferInsert'];
 type Options<K extends Name> = { orderBy?: keyof Row<K>; limit?: number; notNull?: Array<keyof Row<K>> };
 
 export type Db = {
-  dialect: 'sqlite' | 'postgresql';
+  dialect: 'postgresql';
   find<K extends Name>(table: K, where?: Partial<Row<K>>, options?: Options<K>): Promise<Row<K>[]>;
   insert<K extends Name>(table: K, values: Insert<K> | Insert<K>[]): Promise<Row<K>[]>;
   update<K extends Name>(table: K, values: Partial<Insert<K>>, where: Partial<Row<K>>): Promise<Row<K>[]>;
@@ -26,7 +26,7 @@ export function singleResultRows(result: { rows: Record<string, unknown>[] } | {
   return result.rows;
 }
 
-/* 两种驱动共享字段映射与参数绑定；方言负责占位符及事务。 */
+/* PostgreSQL 字段映射与参数绑定；驱动负责占位符及事务。 */
 export function repository(
   dialect: Db['dialect'],
   execute: Execute,

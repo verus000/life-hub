@@ -3,7 +3,7 @@
 /* 分类列表：同一网格对齐名称、日期、金额；手机改为上下分组。 */
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { CATEGORIES, dateLabel, get, isActive, reminderCycle, statusOf } from '@/lib/model';
+import { CATEGORIES, categoryAction, categoryMetadata, dateLabel, isActive, reminderCycle, statusOf } from '@/lib/model';
 import { CYCLES, STATUSES, validDate } from '@/lib/records';
 import type { Item } from '@/lib/types';
 import { Badge, Btn, DateTile, DoneButton, STATUS_TEXT } from '@/components/ui';
@@ -16,11 +16,6 @@ import { SelectField } from '@/components/ui/select-field';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-const ACTION_LABEL: Record<string, string> = { phone: '记录保活', broadband: '记录续费', parking: '记录缴费', asset: '记录复核' };
-const LIST_META: Record<string, string[]> = {
-  phone: ['provider', 'detail.country'], broadband: ['provider', 'detail.speed'],
-  parking: ['provider', 'detail.slot', 'detail.cardType'], asset: ['provider', 'detail.assetType'],
-};
 const PERIOD: Record<string, string> = { weekly: '周', monthly: '月', quarterly: '季', semiannual: '半年', yearly: '年' };
 const DUE_FILTERS: Array<[string, string]> = [
   ['all', '全部到期状态'], ['overdue', '已逾期'], ['today', '今日到期'],
@@ -41,9 +36,9 @@ function ItemRow({ x, category, ...actions }: { x: Item; category: string } & It
     ? !x.nextDate ? '未设复核日期' : status.days !== null && status.days > 0 ? status.days + ' 天后复核' : status.days === 0 ? '今日复核' : status.label
     : status.label;
   const title = x.title || '(未命名)';
-  const meta = LIST_META[category].map((path) => get(x, path)).filter((value) => value !== '' && value !== null && value !== undefined).join(' · ');
+  const meta = categoryMetadata(x);
   const extra: string[] = [];
-  if (category === 'phone') extra.push('保活：' + (CYCLES[reminderCycle(x)] || '每月'), String(x.detail?.strategy || ''));
+  if (category === 'phone') extra.push((x.detail?.reminderKind === 'expiry' ? '套餐到期：' : '保活：') + (CYCLES[reminderCycle(x)] || '未设置'), String(x.detail?.strategy || ''));
   if (category === 'broadband' && x.detail?.contractDate) extra.push('合约到期：' + dateLabel(String(x.detail.contractDate)));
   if (x.detail?.lastCompletedAt) extra.push('最近处理：' + dateLabel(String(x.detail.lastCompletedAt)));
 
@@ -75,7 +70,7 @@ function ItemRow({ x, category, ...actions }: { x: Item; category: string } & It
       {x.amount === null || x.amount === undefined ? '—' : <>{x.currency || 'CNY'} {Number(x.amount).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}{category !== 'asset' && PERIOD[x.cycle] && <span className="ml-1 text-[13px] text-ink-2">/ {PERIOD[x.cycle]}</span>}</>}
     </div>
     <div className="category-actions">
-      {active ? <DoneButton label={ACTION_LABEL[category]} title={title} icon="edit" onClick={() => actions.onMarkDone(x.id)} />
+      {active ? <DoneButton label={'记录' + categoryAction(category, x.detail)} title={title} icon="edit" onClick={() => actions.onMarkDone(x.id)} />
         : <Btn onClick={() => actions.onChangeStatus(x.id, 'active')}>恢复在用</Btn>}
       <ItemMenu x={x} {...actions} />
     </div>
@@ -153,7 +148,7 @@ export function CategoryList({
     <div className="flex flex-wrap items-center gap-3">
       <div className="relative min-w-0 flex-1 sm:max-w-[620px]">
         <Icon name="search" className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-2" />
-        <Input type="text" aria-label="搜索记录" placeholder={category === 'phone' ? '搜索号码、运营商或备注…' : '搜索名称、机构或备注…'}
+        <Input type="text" aria-label="搜索记录" placeholder={category === 'phone' ? '搜索别名、尾号、服务商或地区…' : '搜索名称、机构或备注…'}
           value={search}
           onCompositionStart={() => { composing.current = true; }}
           onChange={(event) => {
@@ -175,8 +170,8 @@ export function CategoryList({
     {category === 'asset' && <AssetDistribution items={items} />}
     {list.length ? <div>
       <div className="category-columns hidden border-b border-line pb-4 pt-4 text-[13px] text-ink-2 md:grid">
-        <span>{category === 'phone' ? '号码' : category === 'asset' ? '账户' : '名称'}</span>
-        <span>{category === 'phone' ? '保活日期' : category === 'asset' ? '当前余额' : '到期日期'}</span>
+        <span>{category === 'phone' ? '卡片 / 别名' : category === 'asset' ? '账户' : '名称'}</span>
+        <span>{category === 'phone' ? '提醒日期' : category === 'asset' ? '当前余额' : '到期日期'}</span>
         <span>{category === 'asset' ? '复核日期' : '每期费用'}</span><span className="w-[156px] pl-3">操作</span>
       </div>
       <ul className="m-0 list-none divide-y divide-line border-b border-line p-0">{list.map((item) => <ItemRow key={item.id} x={item} category={category} {...actions} />)}</ul>

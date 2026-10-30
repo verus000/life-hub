@@ -18,6 +18,19 @@ async function seedUser(db: Awaited<ReturnType<typeof freshDb>>, n: number) {
 }
 
 describe('条目 CRUD', () => {
+  it('eSIM 别名、脱敏尾号和后续业务扩展信息经 PostgreSQL 保存与部分更新保持不变', async () => {
+    const db = await freshDb();
+    const uid = await seedUser(db, 15);
+    const detail = { simType: 'esim', phoneNumber: '+44 ****1234', reminderKind: 'expiry',
+      planName: '旅行流量', coverage: '欧洲多国', futureBusiness: { version: 1, plan: 'demo' } };
+    const created = await addItem(db, { category: 'phone', title: '欧洲备用卡', detail }, uid);
+    await updateItem(db, created.id, { note: '仅保存脱敏标识' }, uid);
+    const [saved] = await listItems(db, uid);
+    expect(saved.title).toBe('欧洲备用卡');
+    expect(saved.amount).toBeNull();
+    expect(saved.detail).toMatchObject(detail);
+    expect(saved.detail.recordKey).toBe(created.detail.recordKey);
+  });
   it('新增往返 detail 与日期字段', async () => {
     const db = await freshDb();
     const uid = await seedUser(db, 1);

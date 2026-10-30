@@ -1,7 +1,7 @@
 /* RFC 5545 日历快照。日期使用本地全天事件，通知由导入文件的日历应用负责。
    行为与原 public/assets/js/calendar.js 逐行对应。 */
 
-import { addDays, dueEntries } from './model';
+import { addDays, categoryAction, dueEntries } from './model';
 import type { Item } from './types';
 
 function escapeText(value: unknown): string {
@@ -43,8 +43,7 @@ export function createCalendar(items: Item[]): { text: string; count: number } {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
   entries.forEach((o) => {
     const x = o.x;
-    const actions: Record<string, string> = { phone: '保活', broadband: '续费', parking: '缴费', asset: '复核' };
-    const action = o.kind === 'contract' ? '合约到期' : actions[x.category];
+    const action = o.kind === 'contract' ? '合约到期' : categoryAction(x.category, x.detail);
     const title = action + ' · ' + x.title;
     const key = (x.detail || {}).recordKey || [x.id, x.category, x.title, x.provider].join('|');
     lines.push(

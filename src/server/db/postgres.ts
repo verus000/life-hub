@@ -1,4 +1,5 @@
 import pg from 'pg';
+import fs from 'node:fs';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import { repository, singleResultRows, type Db } from './repository';
@@ -7,6 +8,7 @@ import type { DatabaseTarget } from './target';
 /* 不自动建表；应用仅持有 DML 账号，结构由独立迁移入口管理。 */
 export async function createPostgresDb(target: DatabaseTarget): Promise<Db> {
   const pool = new pg.Pool({ connectionString: target.url, max: 5, connectionTimeoutMillis: 5000,
+    ssl: target.tls ? { rejectUnauthorized: true, ...(target.caFile ? { ca: fs.readFileSync(target.caFile, 'utf8') } : {}) } : false,
     options: '-c search_path=app', application_name: 'life_hub' });
   try {
     const identity = (await pool.query('SELECT current_database() AS database, current_user AS "user"')).rows[0];

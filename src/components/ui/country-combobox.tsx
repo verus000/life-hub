@@ -8,14 +8,14 @@ import { Button } from './button';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from './command';
 
-export function CountryCombobox({ id, value, onChange }: { id: string; value: string; onChange: (value: string) => void }) {
+export function CountryCombobox({ id, label = '归属国家', value, onChange }: { id: string; label?: string; value: string; onChange: (value: string) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const countries = searchCountries(query);
   const select = (next: string) => { onChange(next); setOpen(false); };
   return <Popover open={open} onOpenChange={(next) => { setOpen(next); if (next) setQuery(''); }}>
     <PopoverTrigger asChild>
-      <Button id={id} aria-label="归属国家" role="combobox" aria-expanded={open} variant="outline" className={cn('w-full min-w-0 justify-between border-input bg-surface px-3.5 font-normal shadow-none hover:border-brand/50 hover:bg-background hover:text-foreground', !value && 'text-muted-foreground')}>
+      <Button id={id} aria-label={label} role="combobox" aria-expanded={open} variant="outline" className={cn('w-full min-w-0 justify-between border-input bg-surface px-3.5 font-normal shadow-none hover:border-brand/50 hover:bg-background hover:text-foreground', !value && 'text-muted-foreground')}>
         <span className="truncate">{value || '选择国家或地区'}</span><Icon name="chevron" className="size-4 text-muted-foreground" />
       </Button>
     </PopoverTrigger>

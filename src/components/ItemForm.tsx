@@ -1,11 +1,14 @@
 'use client';
 
-/* 添加/编辑条目表单：字段定义来自 Model.CATEGORIES，版式由下方 LAYOUT 决定 */
+/* 添加/编辑条目表单：字段定义来自 Model.CATEGORIES，版式来自同一分类注册表 */
 
 import { useId, useState } from 'react';
-import { CATEGORIES, get, reminderCycle, set } from '@/lib/model';
+import { CATEGORIES } from '@/lib/model';
 import type { FieldDef } from '@/lib/model';
-import { clone, validate } from '@/lib/records';
+import { validate } from '@/lib/records';
+import { collectFormValues, initialFormValues } from '@/lib/item-form';
+import { formLayout, MONEY_FIELD as MONEY } from '@/lib/categories';
+import { maskIdentifier } from '@/lib/privacy';
 import type { Item, ItemInput } from '@/lib/types';
 import { Btn, Modal } from '@/components/ui';
 import { Icon } from '@/components/icons';
@@ -18,41 +21,6 @@ import { SelectField } from '@/components/ui/select-field';
 import { CountryCombobox } from '@/components/ui/country-combobox';
 import { AmountField } from '@/components/ui/amount-field';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-
-/* 表单版式：每类分成两三个小节，每行最多两个字段（宽屏并排、手机堆叠）。
-   MONEY 把金额和币种合成一个输入组；未列出的字段自动落到“更多信息”，新增字段不会丢。 */
-const MONEY = 'amount+currency';
-type Section = { title: string; rows: string[][] };
-const LAYOUT: Record<string, { sections: Section[]; more: string[][] }> = {
-  phone: {
-    sections: [
-      { title: '号码', rows: [['title'], ['provider', 'detail.country']] },
-      { title: '保活提醒', rows: [['nextDate', 'detail.reminderCycle'], ['detail.strategy']] },
-    ],
-    more: [[MONEY, 'cycle'], ['startDate'], ['note']],
-  },
-  broadband: {
-    sections: [
-      { title: '宽带', rows: [['title'], ['provider', 'detail.speed']] },
-      { title: '续费', rows: [['nextDate', 'cycle'], [MONEY], ['detail.contractDate', 'detail.autoRenew']] },
-    ],
-    more: [['detail.address'], ['detail.accountNo', 'startDate'], ['note']],
-  },
-  parking: {
-    sections: [
-      { title: '车位', rows: [['title'], ['provider', 'detail.slot']] },
-      { title: '缴费', rows: [['nextDate', 'cycle'], [MONEY, 'detail.cardType']] },
-    ],
-    more: [['detail.channel', 'startDate'], ['note']],
-  },
-  asset: {
-    sections: [
-      { title: '账户', rows: [['title'], ['detail.assetType', 'provider']] },
-      { title: '余额', rows: [[MONEY]] },
-    ],
-    more: [['nextDate', 'detail.reminderCycle'], ['note']],
-  },
-};
 
 function FieldLabel({ htmlFor, f }: { htmlFor: string; f: FieldDef }) {
   return <Label htmlFor={htmlFor} className="mb-2 block text-ink-2">
@@ -68,12 +36,15 @@ function FieldRow({ f, value, onChange }: { f: FieldDef; value: string; onChange
   } else if (f.type === 'textarea') {
     control = <Textarea id={fieldId} value={value} placeholder={f.placeholder || ''} rows={3} onChange={(e) => onChange(e.target.value)} />;
   } else if (f.type === 'country') {
-    control = <CountryCombobox id={fieldId} value={value} onChange={onChange} />;
+    control = <CountryCombobox id={fieldId} label={f.label} value={value} onChange={onChange} />;
   } else if (f.type === 'date') {
     control = <DatePicker id={fieldId} label={f.label} value={value} onChange={onChange} />;
   } else {
     control = <>
-      <Input id={fieldId} type={f.type === 'number' ? 'number' : 'text'} step={f.type === 'number' ? '0.01' : undefined} value={value} placeholder={f.placeholder || ''} onChange={(e) => onChange(e.target.value)} />
+      <Input id={fieldId} type={f.type === 'number' ? 'number' : 'text'} step={f.type === 'number' ? '0.01' : undefined} value={value} placeholder={f.placeholder || ''} aria-describedby={f.hint ? fieldId + '-hint' : undefined} autoComplete={f.sensitive ? 'off' : undefined} onChange={(e) => onChange(e.target.value)} />
+      {f.sensitive && <Button variant="ghost" className="mt-1 h-11 px-0 text-xs text-mint-ink" disabled={!value.trim() || value === maskIdentifier(value)} onClick={() => onChange(maskIdentifier(value))}>
+        仅保留末 4 位<span className="sr-only">：{f.label}</span>
+      </Button>}
       {/* 常用选项单行横向滚动，选中项高亮，不再把表单撑成好几行 */}
       {f.type === 'suggest' && <div className="-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
         {(f.presets || []).map((preset) => <Button key={preset} size="xs" variant="outline"
@@ -86,6 +57,7 @@ function FieldRow({ f, value, onChange }: { f: FieldDef; value: string; onChange
   return <div className="min-w-0">
     <FieldLabel htmlFor={fieldId} f={f} />
     {control}
+    {f.hint && <p id={fieldId + '-hint'} className="m-0 mt-1.5 text-xs leading-relaxed text-ink-2">{f.hint}</p>}
   </div>;
 }
 
@@ -109,30 +81,22 @@ export function ItemForm({
   const def = CATEGORIES[category];
   const isEdit = !!item;
 
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
-    def.fields.forEach((f) => {
-      let val = isEdit ? String(get(item, f.key) ?? '') : f.default || '';
-      if (isEdit && !val && f.key === 'detail.reminderCycle') val = reminderCycle(item);
-      if (!val && f.key === 'currency') val = 'CNY';
-      init[f.key] = val;
-    });
-    return init;
-  });
+  const [values, setValues] = useState<Record<string, string>>(() => initialFormValues(category, item));
   const [error, setError] = useState('');
 
   function update(key: string, v: string) {
-    setValues((prev) => ({ ...prev, [key]: v }));
+    setValues((prev) => {
+      const next = { ...prev, [key]: v };
+      if (!isEdit && category === 'phone' && key === 'detail.reminderKind') {
+        const previousDefault = prev[key] === 'expiry' ? 'once' : 'monthly';
+        if (prev['detail.reminderCycle'] === previousDefault) next['detail.reminderCycle'] = v === 'expiry' ? 'once' : 'monthly';
+      }
+      return next;
+    });
   }
 
   function collect(): ItemInput {
-    const draft: ItemInput = { category, detail: clone((item || {}).detail || {}) };
-    def.fields.forEach((f) => {
-      let v: string | number | null = values[f.key] ?? '';
-      if (f.type === 'number') v = v === '' || v === null ? null : Number(v);
-      set(draft as never, f.key, v);
-    });
-    return draft;
+    return collectFormValues(category, values, item);
   }
 
   function submit(e: React.FormEvent) {
@@ -154,11 +118,20 @@ export function ItemForm({
     onConfirm(draft);
   }
 
-  const layout = LAYOUT[category] || { sections: [{ title: def.label, rows: [] }], more: [] };
+  const layout = formLayout(def);
   const placed = new Set(layout.sections.flatMap((s) => s.rows).concat(layout.more).flat()
     .flatMap((k) => (k === MONEY ? ['amount', 'currency'] : [k])));
   const more = layout.more.concat(def.fields.filter((f) => !placed.has(f.key)).map((f) => [f.key]));
-  const fieldOf = (key: string) => def.fields.find((f) => f.key === key);
+  const fieldOf = (key: string) => {
+    const field = def.fields.find((f) => f.key === key);
+    if (category === 'phone' && values['detail.reminderKind'] === 'expiry') {
+      if (field?.key === 'nextDate') return { ...field, label: '套餐到期日', hint: '不确定日期时可以先留空。' };
+      if (field?.key === 'detail.reminderCycle') return { ...field, label: '提醒周期' };
+      if (field?.key === 'detail.strategy') return { ...field, label: '到期提醒说明', type: 'text' as const };
+    }
+    if (category === 'phone' && field?.key === 'nextDate') return { ...field, label: '下次保活日期' };
+    return field;
+  };
   const moreLabels = more.flat().map((k) => fieldOf(k === MONEY ? 'amount' : k)?.label).filter(Boolean).join('、');
 
   function cell(key: string) {
@@ -175,13 +148,13 @@ export function ItemForm({
   }
 
   const renderRows = (rows: string[][]) => rows.map((row) => (
-    <div key={row.join()} className={row.length > 1 ? 'grid gap-4 sm:grid-cols-2' : ''}>{row.map(cell)}</div>
+    <div key={row.join()} className={row.length > 1 ? 'grid min-w-0 gap-4 sm:grid-cols-2' : 'min-w-0'}>{row.map(cell)}</div>
   ));
 
   return (
     <Modal
       title={(isEdit ? '编辑' : '添加') + def.label}
-      description={category === 'phone' ? '先记下号码与保活日期，其余按需补充。' : '填好必要信息，更多细节可以稍后补充。'}
+      description={category === 'phone' ? '用别名管理海外卡，号码可不填；支持长期保号和套餐到期。' : '填好必要信息，更多细节可以稍后补充。'}
       onClose={busy ? () => undefined : onClose}
       footer={
         <>
@@ -211,7 +184,7 @@ export function ItemForm({
             </fieldset>
           ))}
         </div>
-        {category === 'phone' && <p className="m-0 mt-4 text-xs text-ink-2">保活周期与缴费周期可分别设置。</p>}
+        <p className="m-0 mt-4 text-xs leading-relaxed text-ink-2">支持别名、星号和尾号。脱敏后按当前内容保存，列表和导出也沿用该内容。</p>
         {more.length > 0 && (
           <Collapsible className="group mt-6">
             <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto w-full justify-between gap-3 rounded-none border-y border-line px-0 py-4 text-sm text-ink hover:bg-brand-soft">

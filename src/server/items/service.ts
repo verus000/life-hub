@@ -2,9 +2,9 @@
    行映射与原 src/db/normalize.js 逐行对应；并发串行化与原 src/routes.js 的 mutate 队列一致。 */
 
 import { randomUUID } from 'node:crypto';
-import type { items } from '../db/pg-schema';
+import type { items } from '../db/schema';
 import type { Db } from '../db';
-import type { ItemRow } from '../db/pg-schema';
+import type { ItemRow } from '../db/schema';
 import { badRequest, conflict, notFound } from '../errors';
 import { knownCode, normalizeDetail, partition, validate, CYCLES, STATUSES, CATEGORIES } from '@/lib/records';
 import type { Item, ItemInput, ValidatedFields } from '@/lib/types';
@@ -47,7 +47,7 @@ export function rowToItem(row: ItemRow): Item {
     startDate: row.startDate || '',
     nextDate: row.nextDate || '',
     status: knownCode(row.status, STATUSES) || 'active',
-    detail: normalizeDetail(parseDetail(row.detail)),
+    detail: normalizeDetail(parseDetail(row.detail), row.category),
     note: row.note || '',
     createdAt: row.createdAt || '',
     updatedAt: row.updatedAt || '',

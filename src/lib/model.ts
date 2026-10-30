@@ -1,131 +1,18 @@
-/* 分类配置与领域计算：新增一个管理类别只需在这里加配置。
-   行为与原 public/assets/js/model.js 逐行对应。 */
+/* 日期、周期、历史与统计的纯函数；分类配置统一来自 categories.ts。 */
 
 import { clone, validDate } from './records';
 import type { CompletionValues, DueEntry, Item, ItemDetail, Snapshot, ValidatedFields } from './types';
 
-export const CYCLES: [string, string][] = [
-  ['weekly', '每周'], ['monthly', '每月'], ['quarterly', '每季'], ['semiannual', '每半年'],
-  ['yearly', '每年'], ['once', '一次性'],
-];
+import { CATEGORIES, COUNTRIES, CYCLES, categoryAction } from './categories';
+export { ASSET_TYPES, CATEGORIES, COUNTRIES, CURRENCIES, CYCLES, ORDER, STRATEGY_PRESET } from './categories';
+export type { CategoryDef, FieldDef } from './categories';
+export { categoryAction } from './categories';
 const CYCLE_FACTOR: Record<string, number> = { weekly: 52, monthly: 12, quarterly: 4, semiannual: 2, yearly: 1, once: 0 };
 const CYCLE_LABEL: Record<string, string> = Object.fromEntries(CYCLES);
-
-export const ASSET_TYPES = ['现金', '银行存款', '证券', '基金', '保险', '公积金', '房产', '其他'];
-
-export const CURRENCIES = ['CNY', 'USD', 'HKD', 'EUR', 'JPY', 'GBP', 'TWD', 'KRW', 'SGD', 'AUD', 'CAD', 'THB'];
 const CURRENCY_SYMBOL: Record<string, string> = {
   CNY: '¥', USD: '$', HKD: 'HK$', EUR: '€', JPY: '¥', GBP: '£',
   TWD: 'NT$', KRW: '₩', SGD: 'S$', AUD: 'A$', CAD: 'C$', THB: '฿',
 };
-
-export const COUNTRIES: [string, string, string][] = [
-  ['中国', 'China', '🇨🇳'], ['中国香港', 'Hong Kong', '🇭🇰'], ['中国澳门', 'Macao', '🇲🇴'], ['中国台湾', 'Taiwan', '🇹🇼'],
-  ['新加坡', 'Singapore', '🇸🇬'], ['马来西亚', 'Malaysia', '🇲🇾'], ['泰国', 'Thailand', '🇹🇭'], ['日本', 'Japan', '🇯🇵'], ['韩国', 'Korea', '🇰🇷'],
-  ['美国', 'United States', '🇺🇸'], ['英国', 'United Kingdom', '🇬🇧'], ['加拿大', 'Canada', '🇨🇦'], ['澳大利亚', 'Australia', '🇦🇺'],
-  ['越南', 'Vietnam', '🇻🇳'], ['菲律宾', 'Philippines', '🇵🇭'], ['印尼', 'Indonesia', '🇮🇩'], ['印度', 'India', '🇮🇳'], ['阿联酋', 'UAE', '🇦🇪'],
-  ['德国', 'Germany', '🇩🇪'], ['法国', 'France', '🇫🇷'], ['意大利', 'Italy', '🇮🇹'], ['西班牙', 'Spain', '🇪🇸'],
-  ['俄罗斯', 'Russia', '🇷🇺'], ['土耳其', 'Turkey', '🇹🇷'], ['埃及', 'Egypt', '🇪🇬'], ['南非', 'South Africa', '🇿🇦'],
-  ['巴西', 'Brazil', '🇧🇷'], ['墨西哥', 'Mexico', '🇲🇽'], ['柬埔寨', 'Cambodia', '🇰🇭'], ['老挝', 'Laos', '🇱🇦'],
-  ['缅甸', 'Myanmar', '🇲🇲'], ['巴基斯坦', 'Pakistan', '🇵🇰'], ['尼日利亚', 'Nigeria', '🇳🇬'], ['新西兰', 'New Zealand', '🇳🇿'],
-];
-
-export const STRATEGY_PRESET = ['每月通话+短信', '季度充值保号', '漫游保活', '仅需接收短信', '每月流量消耗'];
-
-/* ---------- 分类定义：字段驱动表单与列表 ---------- */
-
-export interface FieldDef {
-  key: string;
-  label: string;
-  type: 'text' | 'number' | 'date' | 'select' | 'textarea' | 'country' | 'suggest';
-  required?: boolean;
-  placeholder?: string;
-  full?: boolean;
-  options?: [string, string][];
-  presets?: string[];
-  default?: string;
-}
-
-export interface CategoryDef {
-  key: string;
-  label: string;
-  unit: string;
-  hasCycle: boolean;
-  hasDue: boolean;
-  fields: FieldDef[];
-}
-
-export const CATEGORIES: Record<string, CategoryDef> = {
-  phone: {
-    key: 'phone', label: '手机号', unit: '月租',
-    hasCycle: true, hasDue: true,
-    fields: [
-      { key: 'title', label: '手机号', type: 'text', required: true, placeholder: '如 +86 13800000000' },
-      { key: 'provider', label: '运营商', type: 'text', placeholder: '如 中国移动' },
-      { key: 'detail.country', label: '归属国家', type: 'country' },
-      { key: 'detail.strategy', label: '保活策略', type: 'suggest', presets: STRATEGY_PRESET },
-      { key: 'amount', label: '每期费用', type: 'number' },
-      { key: 'currency', label: '币种', type: 'select', options: CURRENCIES.map((c) => [c, c]), default: 'CNY' },
-      { key: 'cycle', label: '缴费周期', type: 'select', options: CYCLES, default: 'monthly' },
-      { key: 'detail.reminderCycle', label: '保活周期', type: 'select', options: CYCLES, default: 'monthly' },
-      { key: 'startDate', label: '激活日期', type: 'date' },
-      { key: 'nextDate', label: '下次保活日期', type: 'date', required: true },
-      { key: 'note', label: '备注', type: 'textarea', full: true },
-    ],
-  },
-  broadband: {
-    key: 'broadband', label: '宽带', unit: '月费',
-    hasCycle: true, hasDue: true,
-    fields: [
-      { key: 'title', label: '宽带名称', type: 'text', required: true, placeholder: '如 家里电信宽带' },
-      { key: 'provider', label: '运营商', type: 'text', placeholder: '如 中国电信' },
-      { key: 'detail.speed', label: '带宽', type: 'text', placeholder: '如 500M' },
-      { key: 'detail.address', label: '装机地址', type: 'text', full: true },
-      { key: 'detail.accountNo', label: '宽带账号', type: 'text' },
-      { key: 'amount', label: '每期费用', type: 'number' },
-      { key: 'currency', label: '币种', type: 'select', options: CURRENCIES.map((c) => [c, c]), default: 'CNY' },
-      { key: 'cycle', label: '缴费周期', type: 'select', options: CYCLES, default: 'monthly' },
-      { key: 'startDate', label: '开通日期', type: 'date' },
-      { key: 'nextDate', label: '下次续费日期', type: 'date', required: true },
-      { key: 'detail.contractDate', label: '合约到期日', type: 'date' },
-      { key: 'detail.autoRenew', label: '自动续费', type: 'select', options: [['yes', '是'], ['no', '否']], default: 'no' },
-      { key: 'note', label: '备注', type: 'textarea', full: true },
-    ],
-  },
-  parking: {
-    key: 'parking', label: '停车费', unit: '费用',
-    hasCycle: true, hasDue: true,
-    fields: [
-      { key: 'title', label: '车牌号', type: 'text', required: true, placeholder: '如 粤A12345' },
-      { key: 'provider', label: '停车场 / 物业', type: 'text' },
-      { key: 'detail.slot', label: '车位号', type: 'text', placeholder: '如 B2-128' },
-      { key: 'detail.cardType', label: '卡类型', type: 'select', options: [['月卡', '月卡'], ['季卡', '季卡'], ['年卡', '年卡'], ['临停', '临停']], default: '月卡' },
-      { key: 'amount', label: '每期费用', type: 'number' },
-      { key: 'currency', label: '币种', type: 'select', options: CURRENCIES.map((c) => [c, c]), default: 'CNY' },
-      { key: 'cycle', label: '缴费周期', type: 'select', options: CYCLES, default: 'monthly' },
-      { key: 'startDate', label: '起租日期', type: 'date' },
-      { key: 'nextDate', label: '到期日期', type: 'date', required: true },
-      { key: 'detail.channel', label: '缴费渠道', type: 'text', placeholder: '如 物业小程序' },
-      { key: 'note', label: '备注', type: 'textarea', full: true },
-    ],
-  },
-  asset: {
-    key: 'asset', label: '资产分布', unit: '余额',
-    hasCycle: false, hasDue: false,
-    fields: [
-      { key: 'title', label: '账户名称', type: 'text', required: true, placeholder: '如 招行储蓄卡' },
-      { key: 'provider', label: '机构', type: 'text', placeholder: '如 招商银行' },
-      { key: 'detail.assetType', label: '资产类型', type: 'select', options: ASSET_TYPES.map((t) => [t, t]), default: '银行存款' },
-      { key: 'amount', label: '当前余额', type: 'number', required: true },
-      { key: 'currency', label: '币种', type: 'select', options: CURRENCIES.map((c) => [c, c]), default: 'CNY' },
-      { key: 'nextDate', label: '复核日期', type: 'date' },
-      { key: 'detail.reminderCycle', label: '复核周期', type: 'select', options: CYCLES, default: 'monthly' },
-      { key: 'note', label: '备注', type: 'textarea', full: true },
-    ],
-  },
-};
-
-export const ORDER = ['phone', 'broadband', 'parking', 'asset'];
 
 /* ---------- 取值 / 赋值（支持 detail.xxx 路径） ---------- */
 
@@ -242,7 +129,7 @@ export function isActive(item: Item): boolean {
 }
 
 export function reminderCycle(item: Item): string {
-  return (item.detail && item.detail.reminderCycle) || item.cycle || 'monthly';
+  return item.detail?.reminderCycle || (item.category === 'phone' && item.detail?.reminderKind === 'expiry' ? 'once' : item.cycle) || 'monthly';
 }
 
 export function addMonths(date: string, months: number, anchor?: number): string {
@@ -297,9 +184,8 @@ export function complete(item: Item, values: CompletionValues): ValidatedFields 
   const patch: ValidatedFields & { amount?: number | null } = { nextDate: next, status: once ? 'completed' : 'active', detail };
   if (item.category === 'asset' && amount !== null) patch.amount = amount;
   const after: Item = { ...item, ...patch } as Item;
-  const labels: Record<string, string> = { phone: '保活', broadband: '续费', parking: '缴费', asset: '复核' };
   const entry = {
-    type: 'complete', action: labels[item.category], date, at: new Date().toISOString(), amount,
+    type: 'complete', action: categoryAction(item.category, item.detail), date, at: new Date().toISOString(), amount,
     currency, note: values.note || '', before: snapshot(item), after: snapshot(after),
   };
   detail.history = (detail.history || []).concat([entry]);
@@ -348,4 +234,13 @@ export function totals(items: Item[], annual?: boolean, currencyCodes = false): 
   return Object.keys(sums).sort().map((currency) => currencyCodes
     ? currency + ' ' + sums[currency].toLocaleString('zh-CN', { maximumFractionDigits: 2 })
     : moneyLabel(sums[currency], currency)).join(' · ');
+}
+
+export function categoryMetadata(item: Item): string {
+  const def = CATEGORIES[item.category];
+  return (def?.listMeta || ['provider']).map((key) => {
+    const value = String(get(item, key));
+    const field = def?.fields.find((candidate) => candidate.key === key);
+    return field?.options?.find(([code]) => code === value)?.[1] || value;
+  }).filter(Boolean).join(' · ');
 }

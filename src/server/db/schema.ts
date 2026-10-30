@@ -1,10 +1,12 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { pgSchema, text, integer, doublePrecision, index, uniqueIndex } from 'drizzle-orm/pg-core';
+
+const app = pgSchema('app');
 
 /* 用户：邮箱注册，email_verified_at 为空表示尚未激活 */
-export const users = sqliteTable(
+export const users = app.table(
   'users',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     emailVerifiedAt: text('email_verified_at'),
@@ -15,7 +17,7 @@ export const users = sqliteTable(
 );
 
 /* 登录会话：只存令牌哈希，HttpOnly Cookie 持原始令牌 */
-export const sessions = sqliteTable(
+export const sessions = app.table(
   'sessions',
   {
     tokenHash: text('token_hash').primaryKey(),
@@ -26,8 +28,8 @@ export const sessions = sqliteTable(
   (t) => [index('sessions_user_idx').on(t.userId)],
 );
 
-/* 邮箱验证令牌：一次性，24 小时有效，使用后删除；旧 verifications 表由 ensureSchema 搬入 */
-export const verificationTokens = sqliteTable(
+/* 邮箱验证令牌：一次性，24 小时有效，使用后删除。 */
+export const verificationTokens = app.table(
   'verification_tokens',
   {
     tokenHash: text('token_hash').primaryKey(),
@@ -39,15 +41,15 @@ export const verificationTokens = sqliteTable(
 );
 
 /* 生活条目：user_id 为空的行属于旧版单用户数据，等首个激活用户认领 */
-export const items = sqliteTable(
+export const items = app.table(
   'items',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey().generatedByDefaultAsIdentity(),
     userId: integer('user_id'),
     category: text('category').notNull().default('phone'),
     title: text('title').notNull(),
     provider: text('provider').notNull().default(''),
-    amount: real('amount'),
+    amount: doublePrecision('amount'),
     currency: text('currency').notNull().default('CNY'),
     cycle: text('cycle').notNull().default(''),
     startDate: text('start_date').notNull().default(''),

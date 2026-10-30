@@ -14,19 +14,20 @@ describe('数据库目标检查', () => {
   it('接受登记的测试目标', () => {
     expect(databaseTarget(env)).toMatchObject({ database: 'life_hub_test', user: 'life_hub_test_app' });
   });
-  it('本地入口拒绝 SQLite，缺失测试连接时也不回退开发库', async () => {
+  it('缺失测试连接时不回退开发库，生产模式也必须显式指定环境', async () => {
     try {
-      vi.stubEnv('DB_BACKEND', 'sqlite');
-      await expect(getDb()).rejects.toThrow('本地开发和测试必须使用 Docker PostgreSQL');
-      vi.stubEnv('DB_BACKEND', 'postgresql');
       vi.stubEnv('TEST_DATABASE_URL', '');
       vi.stubEnv('DATABASE_URL', env.TEST_DATABASE_URL);
       await expect(getDb()).rejects.toThrow('缺少 TEST_DATABASE_URL');
       vi.stubEnv('NODE_ENV', 'production');
       vi.stubEnv('APP_ENV', '');
-      vi.stubEnv('DB_BACKEND', undefined);
-      await expect(getDb()).rejects.toThrow('APP_ENV=development 或 testing');
+      await expect(getDb()).rejects.toThrow('APP_ENV=development、testing 或 production');
     } finally { vi.unstubAllEnvs(); }
+  });
+  it('容器入口仅允许对应环境的公共数据库 DNS，不能跨环境使用', () => {
+    const url = env.TEST_DATABASE_URL.replace('127.0.0.1:55432', 'local-shared-test-postgres-1:5432');
+    expect(databaseTarget({ ...env, TEST_DATABASE_URL: url })).toMatchObject({ database: 'life_hub_test', tls: false });
+    expect(() => databaseTarget({ ...env, TEST_DATABASE_URL: url.replace('local-shared-test-', 'local-shared-dev-') })).toThrow('目标不匹配');
   });
   it.each([
     { APP_ENV: 'production' }, { APP_ENV: '' }, { APP_PROJECT: 'other' },
@@ -38,6 +39,30 @@ describe('数据库目标检查', () => {
     { TEST_DATABASE_URL: env.TEST_DATABASE_URL + '?options=-c%20role=admin' },
   ])('拒绝不匹配配置 %j', (patch) => {
     expect(() => databaseTarget({ ...env, ...patch })).toThrow();
+  });
+});
+
+describe('生产连接配置检查（只检查配置，不连接生产）', () => {
+  const production = {
+    APP_ENV: 'production', APP_PROJECT: 'life_hub',
+    DATABASE_URL: 'postgresql://life_hub_prod_app:example@db.example.invalid:5432/life_hub_prod',
+    DATABASE_ALLOWED_HOST: 'db.example.invalid', DATABASE_ALLOWED_PORT: '5432',
+  };
+  it('显式匹配独立生产目标并强制 TLS', () => {
+    expect(databaseTarget(production)).toMatchObject({ environment: 'production',
+      database: 'life_hub_prod', user: 'life_hub_prod_app', tls: true });
+    expect(() => databaseTarget(production, 'migration')).toThrow('不允许生产环境');
+  });
+  it.each([
+    { DATABASE_ALLOWED_HOST: '' }, { DATABASE_ALLOWED_PORT: '' },
+    { DATABASE_ALLOWED_HOST: 'other.example.invalid' },
+    { DATABASE_URL: production.DATABASE_URL.replace('life_hub_prod_app:', 'life_hub_prod_migrator:') },
+    { DATABASE_URL: production.DATABASE_URL.replace('/life_hub_prod', '/life_hub_dev') },
+    { DATABASE_URL: production.DATABASE_URL.replace('db.example.invalid', '127.0.0.1'), DATABASE_ALLOWED_HOST: '127.0.0.1' },
+    { DATABASE_URL: production.DATABASE_URL + '?sslmode=disable' },
+    { NODE_TLS_REJECT_UNAUTHORIZED: '0' },
+  ])('拒绝错误生产配置 %j', (patch) => {
+    expect(() => databaseTarget({ ...production, ...patch })).toThrow();
   });
 });
 

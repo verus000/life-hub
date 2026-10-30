@@ -10,13 +10,13 @@
 
 ## 项目概况
 
-- 个人生活管理应用，包含手机号保活、宽带、停车费和资产分布，支持到期提醒、周期顺延、搜索筛选及 CSV 导入导出。
+- 个人生活管理应用，包含以海外 eSIM 为主的手机卡管理、宽带、停车费和资产分布，支持到期提醒、周期顺延、搜索筛选及 CSV 导入导出。手机卡用别名作为名称，号码选填，支持长期保号与套餐到期；既有 phone 标识和旧号码记录兼容。
 - 多用户：邮箱注册（邮件验证激活）、登录会话（HttpOnly Cookie），数据按 `user_id` 隔离；首个完成激活的用户自动认领历史无归属数据。
 - 产品面向个人日常使用，界面以简单、直接、少干扰为优先：顶部分类导航，首页先展示最近安排，统计、筛选及补充字段按需展开。后续改版沿用这一定位。
 - 视觉采用用户选定的薄荷青方案：冷白底、深墨绿正文、深青主按钮与浅薄荷辅助区域（小字对比度不低于 4.5:1），顶部下划线分类导航，细数字日期与星期、连续行列表和轻量分隔线；本地 `public/images/mint-orbit.png` 提供通透环形背景，图标沿用轻量内联 SVG，不引入图标库、远程图片或字体。首页优先处理与近期安排在桌面双栏、手机单列；筛选、补充字段、支出与人民币分布按需展开，移动端操作保留文字和 44px 点击区域。
-- 技术栈：Next.js 16（App Router、Route Handlers、standalone 输出）+ TypeScript 严格模式 + Drizzle ORM（本地 PostgreSQL 用 `pg`；既有 SQLite 部署兼容 Node 22 `node:sqlite`）+ Tailwind CSS v4 + React 19。
+- 技术栈：Next.js 16（App Router、Route Handlers、standalone 输出）+ TypeScript 严格模式 + Drizzle ORM（PostgreSQL / `pg`）+ Tailwind CSS v4 + React 19。
 - 认证为自管会话（SHA-256 哈希令牌 + HttpOnly Cookie），未使用 Auth.js；密码哈希 `bcryptjs`，验证邮件 `nodemailer`。
-- 项目标识：`life_hub`。本地开发、浏览器测试和自动化测试必须使用公共 Docker PostgreSQL 17；开发库 `life_hub_dev`（127.0.0.1:5432）、测试库 `life_hub_test`（127.0.0.1:55432），分别使用独立 `_app` / `_migrator` 角色。公共设施入口 `E:\worksapce\infrastructure\README.md`，换主机后重新发现，不硬编码进应用。既有 SQLite 部署及历史升级继续兼容，禁止本地入口回退 SQLite；不自动导入或读取 `data/`。详见 README、DATABASE 和 UPGRADING。
+- 项目标识：`life_hub`。本地开发、浏览器测试和自动化测试必须使用公共 Docker PostgreSQL 17；开发库 `life_hub_dev`（127.0.0.1:5432）、测试库 `life_hub_test`（127.0.0.1:55432），分别使用独立 `_app` / `_migrator` 角色。公共设施入口 `E:\worksapce\infrastructure\README.md`，换主机后重新发现，不硬编码进应用。所有环境仅使用 PostgreSQL；无文件数据库适配、运行时建表或数据卷入口。生产精确库名 life_hub_prod、角色 life_hub_prod_app，必须配置端点允许列表并验证 TLS；本地迁移入口拒绝生产。详见 README、DATABASE 和 UPGRADING。
 - git 分支约定：`main` 为原生 Node 历史基线；`next-migration` 为 Next.js 重写主线，二者不合并，回退时以基线分支为准。
 
 ## 文件职责
@@ -29,9 +29,9 @@
 | `src/app/globals.css` | Tailwind v4 `@theme` 配色 token（`--color-bg/surface/ink/brand/...`）与基础样式；新增颜色必须先定义 token 再用 utility |
 | `src/app/api/**/route.ts` | 全部 10 个 Route Handler：auth（register/login/logout/resend/me/verify）、health、items（GET/POST/DELETE）、items/[id]（PUT/DELETE）、items/import |
 | `src/middleware.ts` | 页面级快速闸门：只按 Cookie 存在性重定向，真正会话校验在页面与 API 层；运行在 Edge 运行时，**禁止导入 server 侧模块**（常量请放 `auth/constants.ts`） |
-| `src/server/db/schema.ts` / `pg-schema.ts` | SQLite 兼容／PostgreSQL Drizzle 表定义：`users`、`sessions`、`verificationTokens`、`items`（`userId` 可空 + 索引）及行类型导出 |
+| `src/server/db/schema.ts` | PostgreSQL Drizzle 表定义：`users`、`sessions`、`verificationTokens`、`items`（`userId` 可空 + 索引）及行类型导出 |
 | `src/server/db/index.ts` / `target.ts` / `repository.ts` | 异步 `getDb()` 单例、精确环境／连接目标检查、参数绑定的公共读写接口 |
-| `src/server/db/postgres.ts` / `pg-schema.ts` / `sqlite.ts` | PostgreSQL 驱动与结构；既有 SQLite 幂等升级兼容（仅历史回归直接调用 `createDbAt`） |
+| `src/server/db/postgres.ts` | 唯一 PostgreSQL 驱动，连接身份校验、事务、生产 TLS 与可选 CA 文件 |
 | `migrations/` / `scripts/db-migrate.ts` | PostgreSQL 有序 SQL、独立迁移账号、migration_meta 版本及校验和、事务与互斥锁 |
 | `src/server/auth/service.ts` | 注册、激活、登录、会话签发校验、按 IP 限流、dummyCompare 防时序探测；首个激活用户认领 legacy 数据 |
 | `src/server/auth/mailer.ts` | console 模式（outbox 数组）/ smtp 模式（动态 `await import('nodemailer')`） |
@@ -41,7 +41,8 @@
 | `src/server/errors.ts` / `src/server/api-helpers.ts` | `AppError` 工厂族；统一 JSON 错误映射、会话 Cookie 读写、`requireUser`、`readJson` |
 | `src/lib/types.ts` | 全部领域类型（一律 type alias，不用 interface——需要隐式 index signature） |
 | `src/lib/records.ts` | 校验、去重、CSV / JSON 备份解析（前后端共用，纯函数无 server 依赖） |
-| `src/lib/model.ts` | 分类字段定义、日期与周期计算、历史快照、待办与统计 |
+| `src/lib/categories.ts` | 分类字段、标签与历史别名、表单布局、列表摘要和处理文案；导航与导入标签由此生成 |
+| `src/lib/model.ts` / `item-form.ts` / `privacy.ts` | 日期周期、历史与待办统计；表单默认值与保留扩展字段；输入侧仅保留尾号 |
 | `src/lib/calendar.ts` / `src/lib/chart.ts` | ICS 生成（折行 / UID / 提醒）、环形图几何与配色 |
 | `src/lib/api.ts` | 客户端 fetch 封装（`ApiError`，401 跳登录）、CSV / 文件下载 |
 | `src/components/Dashboard.tsx` | 主容器：顶栏、tabs、弹窗状态、导入导出备份日历、登出 |
@@ -50,57 +51,58 @@
 | `src/components/AssetDistribution.tsx` | 资产分类中按需展开的人民币余额与分布图，外币分开列示 |
 | `src/components/ActionModals.tsx` / `auth/AuthCard.tsx` / `ui.tsx` / `icons.tsx` | 处理与历史撤销弹窗、登录注册三视图、通用 UI 件、内联 SVG |
 | `src/components/ui/` / `src/lib/utils.ts` / `components.json` | shadcn/ui 源码组件、Radix 交互、中文日期与国家选择器、Sonner 通知；`cn` 合并 Tailwind 样式 |
-| `test/` | Vitest 默认 PostgreSQL／目标与权限检查、事务回滚、auth、items、API、页面及纯函数，共 90 项；`helpers.ts` 仅用测试运行账号并在用例后回滚。`test/legacy/` 保留 SQLite 历史升级回归，默认排除且本次未运行 |
+| `test/` | Vitest 默认 PostgreSQL／目标与权限检查、事务回滚、auth、items、API、页面及纯函数，共 105 项；`helpers.ts` 仅用测试运行账号并在用例后回滚 |
 | `vitest.config.mts` | node 环境、`@` 别名（**必须是 .mts**，.ts 会被按 CJS 加载） |
 | `drizzle.config.ts` / `next.config.ts` / `tsconfig.json` / `postcss.config.mjs` | 工具链配置；`next.config.ts` 设 `output: 'standalone'`、`serverExternalPackages: ['nodemailer']` |
-| `Dockerfile` / `docker-compose.yml` / `.env.example` | 三阶段构建（standalone 运行时）、8787:3000 映射、`/data` 卷、环境变量参考 |
-| `docker-entrypoint.cjs` / `UPGRADING.md` | 兼容旧卷权限后降权启动；数据卷、激活链接和代理配置的升级说明 |
-| `data/` | 本地持久化数据（SQLite 库等），不能用作测试夹具 |
+| `Dockerfile` / `docker-compose.yml` / `.env.example` | 非 root standalone 镜像、回环端口映射、外部数据库网络；构建上下文排除 Secret，无数据库文件卷 |
+| `UPGRADING.md` | PostgreSQL 单存储版本、环境隔离、Docker 与上线迁移说明 |
+| `data/` | 不参与应用运行的历史本地文件，可能敏感，不得读取为夹具或提交到 Git |
 
 ## 运行与配置
 
 ```powershell
-node --version          # 需要 >= 22.5（node:sqlite）
+node --version          # 需要 >= 22
 npm install
 npm run dev             # 开发（http://localhost:3000）
 npm run build && npm start   # 生产（standalone）
-npm test                # PostgreSQL + Vitest 90 项
+npm test                # PostgreSQL + Vitest 105 项
 npm run typecheck       # tsc --noEmit
 ```
 
-- 开发运行凭据放忽略的 `.env.development.local`（APP_ENV=development、APP_PROJECT=life_hub、DB_BACKEND=postgresql、DATABASE_URL）；测试仅加载 `.env.test.local` / `.env.test`（APP_ENV=testing、TEST_DATABASE_URL），不得回退 DATABASE_URL。迁移凭据只放 `configs/.env.<development|testing>.migration.local`，用 `npm run db:migrate -- development|testing` 显式执行，不下发给应用／测试进程。
-- 环境变量由 Next.js 内置 `.env` 机制加载（无 dotenv）；以 `.env.example` 为参考：`DB_FILE_NAME`、`APP_URL`、`MAIL_MODE`（`console`/`smtp`）、`SMTP_HOST/PORT/USER/PASS/FROM`、`SESSION_TTL_DAYS`、`BCRYPT_ROUNDS`。开发期未配置 SMTP 时默认 console 模式（验证链接打印到终端）。
-- 数据库文件路径相对于项目根目录；Docker 中为 `/data/life-hub.db`。Compose 保留旧 `life-hub-data` 卷名，升级时保持原项目名；已使用 `app-data` 的部署按 `UPGRADING.md` 指向既有卷。
+- 开发运行凭据放忽略的 `.env.development.local`（APP_ENV=development、APP_PROJECT=life_hub、DATABASE_URL）；测试仅加载 `.env.test.local` / `.env.test`（APP_ENV=testing、TEST_DATABASE_URL），不得回退 DATABASE_URL。迁移凭据只放 `configs/.env.<development|testing>.migration.local`，用 `npm run db:migrate -- development|testing` 显式执行，不下发给应用／测试进程。
+- 环境变量由 Next.js 内置 `.env` 机制加载（无 dotenv）；以 `.env.example` 为参考：`APP_URL`、`MAIL_MODE`（`console`/`smtp`）、`SMTP_HOST/PORT/USER/PASS/FROM`、`SESSION_TTL_DAYS`、`BCRYPT_ROUNDS`。开发期未配置 SMTP 时默认 console 模式（验证链接打印到终端）。
+- Compose 只管理应用容器，通过显式 DATABASE_NETWORK 使用外部数据库；开发／测试分别接入对应公共网络，生产接入独立网络。宿主机使用回环端点，容器使用对应 PostgreSQL 容器 DNS；应用不拥有数据库卷或服务生命周期。
 - `TRUST_PROXY=false` 为默认值：忽略客户端代理头，直连认证请求共用限流桶。仅在禁止直连且可信反代覆盖/追加真实 IP 时设为 `true`，取 `X-Forwarded-For` 最右侧有效 IP，否则取代理覆盖的 `X-Real-IP`。
 - PowerShell 使用 `$env:MAIL_MODE = 'console'` 形式设置环境变量；临时调试优先用环境变量，不要改用户的 `.env`。
 - Docker：`docker build -t life-hub .` 或 `docker compose up -d`。
-- `node:sqlite` 是实验性 API，构建与测试日志中的 `ExperimentalWarning` 属预期，不是故障。
+- 生产数据库连接需要 DATABASE_ALLOWED_HOST、DATABASE_ALLOWED_PORT 和严格匹配的 DATABASE_URL；禁止本地端点及 TLS 降级。私有 CA 用 DATABASE_SSL_CA_FILE 挂载，真实生产操作仍需明确确认。
 
 ## 实现约定
 
 - TypeScript 严格模式，两空格缩进、单引号、分号；类型一律 type alias（interface 缺隐式 index signature 会破坏 `Item[] → ItemInput[]` 一类赋值）。
 - 动态路由参数是异步的：`{ params }: { params: Promise<{ id: string }> }`，需 `await params`；`cookies()` 同样 `await`。
 - server 侧代码只在 Route Handler / server component 中执行；`src/middleware.ts`（Edge 运行时）**不得**导入 `node:crypto`、bcryptjs、nodemailer、db 等模块——需要的共享常量拆到 `src/server/auth/constants.ts` 这类零依赖文件。
-- Drizzle 使用 1.0.0-rc 系列，`drizzle()` 不传 schema；服务通过异步 Db 公共接口执行参数绑定 SQL。PostgreSQL 结构仅由 `migrations/` 显式版本迁移，不在运行时建表；`db:generate` 只生成待审查差异。SQLite 的 ensureSchema 仅用于既有部署兼容。
+- Drizzle 使用 1.0.0-rc 系列，`drizzle()` 不传 schema；服务通过异步 Db 公共接口执行参数绑定 SQL。PostgreSQL 结构仅由 `migrations/` 显式版本迁移，不在运行时建表；`db:generate` 只生成待审查差异。
 - 前端数据全部来自服务端（首页 server component 注入 `initialItems`），没有 localStorage 数据模式；客户端改动经 `src/lib/api.ts` 提交后本地更新状态。
 - 领域计算留在 `src/lib/`（纯函数，前后端共用，不得导入 server 模块）；数据库细节留在 `src/server/items/service.ts`；Route Handler 只做参数解析、鉴权与响应。
-- 新增管理类别时，先改 `src/lib/model.ts` 的 `CATEGORIES` 与顺序，再检查 `ItemForm` 字段渲染、`CategoryList` 展示、`Overview` 统计及 `records.ts` 的 CSV 映射，并补自测。
+- 新业务先在 `src/lib/categories.ts` 注册稳定标识、字段、表单布局与处理文案；导航顺序、校验标签与列表摘要复用配置，未配置版式使用通用表单。特殊领域行为仍需明确实现和测试，详见 EXTENDING.md。扩展字段优先放 detail，出现索引／约束／关系需求时再评估专用列或关联表及版本迁移。
 - 样式优先复用 `globals.css` 的 `@theme` token 生成的 utility（`bg-surface`、`text-ink-2`、`border-line` 等）；不引入图标库、远程字体或图片依赖。新增动效需尊重 `prefers-reduced-motion`。
 - 交互组件优先复用 `src/components/ui/` 的 shadcn/ui + Radix 源码，语义色通过 `globals.css` 映射到薄荷青主题。避免重新引入原生下拉、日期框与 `window.confirm`；日期仍按本地日历输出 `YYYY-MM-DD`，国家支持自定义输入，旧的未知下拉值需保留。
+- 脱敏信息允许别名、星号与尾号；号码和账号的一键操作替换当前输入，保存／搜索／导出沿用实际保存值，不另存原文。旧全量备份与历史备注不自动重写。新增 eSIM 字段在 detail 下，本次不涉及 DDL。
 - React 组件中用户内容经 JSX 文本节点输出（自动转义）；不要用 `dangerouslySetInnerHTML`。SQL 一律走 Drizzle 参数绑定。
 
 ## 数据与接口兼容
 
 - 应用对象字段使用 camelCase（`startDate`、`nextDate`、`createdAt`、`updatedAt`）；数据库行对应 snake_case，转换集中在 `src/server/items/service.ts` 的 `rowToItem` / `toInsertValues` / `toPatchValues`。
-- `detail` 在应用层是对象，在 SQLite 行中保存为 JSON 字符串；分类扩展字段优先放在 `detail` 下。
+- `detail` 在应用层是对象，在 PostgreSQL text 列中保存为 JSON 字符串；分类扩展字段优先放在 `detail` 下。
 - 金额允许 `null`，空金额不能被无意改成 `0`；业务日期使用 `YYYY-MM-DD` 字符串，创建和更新时间使用 ISO 时间戳。日期计算沿用本地日历语义，避免 UTC 转换造成日期偏移。
 - 人民币资产总额与分布图只统计 CNY 账户，其他币种单独展示；没有自动汇率换算。
 - 周期支出按币种分别汇总，排除暂停、归档、已完成及一次性条目。`status` 可选 `active`、`paused`、`archived`、`completed`；默认列表与待办只展示在用条目。
 - `detail.recordKey` 是新记录的稳定标识；导入按标识去重，旧文件没有标识时按完整内容去重。`detail.reminderCycle` 将保活 / 复核周期与缴费 `cycle` 分开；`detail.reminderAnchor` 保留原始日期；`detail.contractDate` 是独立的宽带合约提醒，旧记录的 `nextDate` 保留原值，编辑时提示核对，不自动推断。`detail.history` 保存处理和状态记录；撤销仅允许最新一次处理且相关字段未发生后续变更。
-- `items.userId` 为空的历史数据由首个完成邮箱验证的用户认领（`claimLegacyItems`）；之后的注册用户从空数据开始。旧库升级由 `ensureSchema()` 做补列迁移（注意：`items_user_idx` 索引必须在补列**之后**创建）。
-- 旧 `verifications` 令牌在事务内搬入 `verification_tokens` 并搬空旧表，避免重启复活已消费令牌。旧 `/?verify=...` 链接由 middleware 在登录闸门之前转到 `/verify?token=...`；登录和注册页的跳转须校验真实会话，不能仅凭 Cookie 存在性。
+- `items.userId` 为空的历史数据由首个完成邮箱验证的用户认领（`claimLegacyItems`）；之后的注册用户从空数据开始。
+- 邮件激活令牌保存在 verification_tokens，成功后消费，重发会替换旧令牌。旧 /?verify=... 地址仍由 middleware 转到验证页；登录和注册页的跳转须校验真实会话，不能仅凭 Cookie 存在性。
 - `update` 是部分更新：未传入的字段保留，包括 `detail`；显式传 `detail` 时整体替换。更新和删除不存在的记录返回 404，列表按 ID 升序返回。
-- 结构变更同步更新 `pg-schema.ts`、`migrations/` 和 `test/db.test.ts`；涉及 SQLite 兼容时还要更新 `schema.ts`、`sqlite.ts` 的 ensureSchema 与 `test/legacy/`。`CREATE TABLE IF NOT EXISTS` 不会迁移已有表。
+- 结构变更同步更新 schema.ts、migrations/ 和 test/db.test.ts；不依赖运行时建表迁移已有结构。
 
 现有 API 约定（`/api/items` 全系要求登录会话，未登录返回 401，数据按当前用户隔离）：
 
@@ -129,12 +131,12 @@ npm run typecheck       # tsc --noEmit
 
 ```powershell
 npm run typecheck   # tsc --noEmit
-npm test            # PostgreSQL + Vitest（90 项）
+npm test            # PostgreSQL + Vitest（105 项）
 npm run build       # 生产构建，15 个路由
 ```
 
 - 业务改动后三件套全跑；纯文档改动按需核实命令和描述即可。
-- 测试仅连接独立 Docker PostgreSQL 测试实例，以最小权限 life_hub_test_app 运行，每用例事务回滚；禁止清表、reset、删库／卷，禁止回退开发库、SQLite 或加载迁移／管理员凭据。内存 outbox 通过 `getOutbox()` 提取验证令牌。
+- 测试仅连接独立 Docker PostgreSQL 测试实例，以最小权限 life_hub_test_app 运行，每用例事务回滚；禁止清表、reset、删库／卷，禁止回退开发库或加载迁移／管理员凭据。内存 outbox 通过 `getOutbox()` 提取验证令牌。
 - 自测不代表真实浏览器交互验证；前端交互或布局改动需补充浏览器检查（特别注意中文输入法期间搜索框不重建）。
 - 数据或行为修复优先在 `test/` 补充有意义的回归场景。
 - 真实 SMTP 发信、Docker 镜像构建、生产 `npm start` 冒烟如未执行，需在交付说明中如实写明范围与原因。
@@ -142,7 +144,7 @@ npm run build       # 生产构建，15 个路由
 ## 本地数据保护
 
 - `data/` 下可能包含真实手机号、住址、账户和资产信息；检查实现时优先读源码，不要为了解项目而读取业务数据。
-- 保留现有数据库、SQLite 的 `-wal` / `-shm` 文件及用户已有改动。不要清空、覆盖或把这些文件当作测试输出。
+- 保留用户已有改动与历史本地文件。清理真实文件或数据须先确认完整目标并得到授权；不得把历史文件作为测试输出。2026-10-30 用户明确要求放弃旧文件数据库数据，已仅删除项目 data 下的 life-hub.db 及对应 wal/shm，不影响 PostgreSQL 与其他本地文件。
 - 临时浏览器服务使用 APP_ENV=testing、TEST_DATABASE_URL 和空闲端口；不要对现有服务调用清空或删除接口。默认构建目录被现有进程占用时可用 LIFE_HUB_DIST_DIR 指定独立 `.next-*` 目录。
 - 需要新增配置示例时使用虚构值，避免在文档、日志或提交内容中写入真实凭据和个人记录。
 

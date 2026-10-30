@@ -2,13 +2,10 @@
    行为与原 public/assets/js/records.js 逐行对应。 */
 
 import type { Item, ItemDetail, ItemInput, ValidatedFields } from './types';
+import { CATEGORIES as CATEGORY_DEFS, CATEGORY_LABELS, CYCLES as CYCLE_OPTIONS } from './categories';
 
-export const CATEGORIES: Record<string, string> = {
-  phone: '手机号', broadband: '宽带', parking: '停车费', asset: '资产分布',
-};
-export const CYCLES: Record<string, string> = {
-  weekly: '每周', monthly: '每月', quarterly: '每季', semiannual: '每半年', yearly: '每年', once: '一次性',
-};
+export const CATEGORIES = CATEGORY_LABELS;
+export const CYCLES: Record<string, string> = Object.fromEntries(CYCLE_OPTIONS);
 export const STATUSES: Record<string, string> = {
   active: '在用', paused: '已暂停', archived: '已归档', completed: '已完成',
 };
@@ -24,8 +21,13 @@ export function knownCode(value: unknown, options: Record<string, string>): stri
   return Object.keys(options).find((k) => k === v || options[k] === v) || v || '';
 }
 
-export function normalizeDetail(value: ItemDetail | null | undefined): ItemDetail {
+export function normalizeDetail(value: ItemDetail | null | undefined, category = 'phone'): ItemDetail {
   const detail = clone(value || {});
+  for (const field of CATEGORY_DEFS[category]?.fields || []) {
+    if (!field.key.startsWith('detail.') || !field.options) continue;
+    const key = field.key.slice(7);
+    if (typeof detail[key] === 'string' && detail[key]) detail[key] = knownCode(detail[key], Object.fromEntries(field.options));
+  }
   if (detail.reminderCycle) detail.reminderCycle = knownCode(detail.reminderCycle, CYCLES);
   if (detail.autoRenew) detail.autoRenew = knownCode(detail.autoRenew, { yes: '是', no: '否' });
   return detail;
@@ -34,7 +36,8 @@ export function normalizeDetail(value: ItemDetail | null | undefined): ItemDetai
 function code(value: unknown, options: Record<string, string>, label: string): string {
   const s = String(value == null ? '' : value).trim();
   if (!s) return '';
-  const key = Object.keys(options).find((k) => k === s || options[k] === s);
+  const key = Object.keys(options).find((k) => k === s || options[k] === s
+    || (options === CATEGORIES && CATEGORY_DEFS[k]?.aliases?.includes(s)));
   if (!key) throw new Error(label + '无效：' + s);
   return key;
 }
@@ -99,7 +102,10 @@ export function validate(input: ItemInput, patch?: boolean): ValidatedFields {
     const detail = input.detail === undefined ? {} : input.detail;
     if (!detail || typeof detail !== 'object' || Array.isArray(detail)) throw new Error('扩展信息必须是对象');
     checkObject(detail, 0);
-    out.detail = clone(detail as ItemDetail);
+    out.detail = normalizeDetail(detail as ItemDetail, out.category || input.category || 'phone');
+    for (const key of ['phoneNumber', 'simType', 'reminderKind', 'planName', 'coverage'] as const) {
+      if (out.detail[key] !== undefined && typeof out.detail[key] !== 'string') throw new Error(key + ' 必须是文本');
+    }
     if (out.detail.reminderCycle) out.detail.reminderCycle = code(out.detail.reminderCycle, CYCLES, '提醒周期');
     if (out.detail.contractDate && !validDate(out.detail.contractDate)) throw new Error('合约到期日无效');
     if (out.detail.reminderAnchor !== undefined && (!Number.isInteger(out.detail.reminderAnchor) || out.detail.reminderAnchor < 1 || out.detail.reminderAnchor > 31)) {
@@ -206,8 +212,11 @@ export function parseCSV(text: string): string[][] {
 }
 
 const ALIASES: Record<string, string> = {
-  名称: 'title', 手机号: 'title', 宽带名称: 'title', 车牌号: 'title', 账户名称: 'title',
-  机构: 'provider', 运营商: 'provider', '停车场 / 物业': 'provider',
+  名称: 'title', 别名: 'title', '名称 / 别名': 'title', 手机号: 'title', 宽带名称: 'title', 车牌号: 'title', 账户名称: 'title',
+  机构: 'provider', 运营商: 'provider', '运营商 / 服务商': 'provider', '停车场 / 物业': 'provider',
+  '号码 / 尾号': 'detail.phoneNumber', '卡片形式': 'detail.simType', '提醒类型': 'detail.reminderKind',
+  套餐: 'detail.planName', '使用国家 / 覆盖地区': 'detail.coverage', '账户标识 / 卡片尾号': 'detail.accountNo',
+  '发卡国家 / 地区': 'detail.country', '套餐到期日': 'nextDate',
   金额: 'amount', 月租金额: 'amount', 每期费用: 'amount', 当前余额: 'amount', 币种: 'currency',
   周期: 'cycle', 缴费周期: 'cycle', 状态: 'status', 备注: 'note',
   开通日期: 'startDate', 激活日期: 'startDate', 起租日期: 'startDate',
@@ -256,11 +265,12 @@ export function parseImport(
             item.category = code(val, CATEGORIES, '分类') || guessed;
             return;
           }
-          let key = ALIASES[h];
+          let key = h === '手机号' && head.some((label) => ['名称', '别名', '名称 / 别名'].includes(label)) ? 'detail.phoneNumber' : ALIASES[h];
           if (h === '合约到期日' && !head.includes('下次续费日期') && !head.includes('下次到期日')) key = 'nextDate';
           if (!key || (key === 'detail.recordKey' && !val)) return;
           if (key.startsWith('detail.')) {
             item.detail = item.detail || {};
+            if (!val && !own(item.detail, key.slice(7))) return;
             (item.detail as Record<string, unknown>)[key.slice(7)] = val;
           } else {
             (item as Record<string, unknown>)[key] = val;
@@ -301,6 +311,11 @@ export function csvColumns(): Array<{ label: string; get: (r: Item) => string }>
   const cols: Array<[string, (r: Item) => string]> = [
     ['分类', (r) => CATEGORIES[r.category] || r.category],
     ['名称', (r) => r.title],
+    ['号码 / 尾号', (r) => String(r.detail?.phoneNumber || '')],
+    ['卡片形式', (r) => String(r.detail?.simType || '')],
+    ['提醒类型', (r) => String(r.detail?.reminderKind || '')],
+    ['套餐', (r) => String(r.detail?.planName || '')],
+    ['使用国家 / 覆盖地区', (r) => String(r.detail?.coverage || '')],
     ['机构', (r) => r.provider],
     ['金额', (r) => (r.amount === null || r.amount === undefined ? '' : String(r.amount))],
     ['币种', (r) => r.currency || 'CNY'],

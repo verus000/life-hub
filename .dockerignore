@@ -1,10 +1,13 @@
 node_modules
 .next
+.next-*
 data
 .git
 .gitignore
 .env
-.env.example
+.env*
+configs
+*.tsbuildinfo
 .workbuddy
 *.md
 config.json

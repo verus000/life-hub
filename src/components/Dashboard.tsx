@@ -21,10 +21,6 @@ import { CompleteModal, HistoryModal } from '@/components/ActionModals';
 
 const PAGE_META: Record<string, { label: string; desc: string }> = {
   overview: { label: '最近的安排', desc: '保活、续费、缴费，都在这里。' },
-  phone: { label: '手机号', desc: '保活提醒，按自己的节奏来。' },
-  broadband: { label: '宽带', desc: '续费与合约期限，清清楚楚。' },
-  parking: { label: '停车费', desc: '记好缴费日期，出行少一件牵挂。' },
-  asset: { label: '资产分布', desc: '定期看一眼，心里更有数。' },
 };
 
 type ImportPreview = {
@@ -285,7 +281,8 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
     setLifecycle('active');
   }
 
-  const meta = PAGE_META[tab] || PAGE_META.overview;
+  const categoryDef = CATEGORIES[tab];
+  const meta = categoryDef ? { label: categoryDef.label, desc: categoryDef.description || '按需记录，按时处理。' } : PAGE_META.overview;
   const counts: Record<string, number> = {};
   items.forEach((x) => {
     counts[x.category] = (counts[x.category] || 0) + 1;
@@ -305,8 +302,8 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
             <span className="hidden text-sm font-normal text-ink-3 sm:inline">Life Hub</span>
           </div>
           <nav className="order-last mt-2 w-full lg:order-none lg:mx-auto lg:mt-0 lg:w-auto lg:self-stretch" aria-label="生活分类">
-            <TabsList className="grid h-full w-full grid-cols-5 items-stretch gap-0 rounded-none bg-transparent p-0 lg:flex lg:gap-6 xl:gap-9">
-              {tabs.map((entry) => <TabsTrigger key={entry.key} value={entry.key} className="h-full min-w-0 gap-2 rounded-none border-b-[3px] border-transparent px-1 py-3 text-sm text-ink-2 hover:text-brand focus-visible:bg-brand-soft focus-visible:ring-0 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-brand data-[state=active]:shadow-none lg:px-0 lg:py-0 lg:text-base">
+            <TabsList className="flex h-full w-full justify-start overflow-x-auto rounded-none bg-transparent p-0 lg:gap-5 xl:gap-8">
+              {tabs.map((entry) => <TabsTrigger key={entry.key} value={entry.key} className="h-full min-h-11 shrink-0 flex-none gap-2 whitespace-nowrap rounded-none border-b-[3px] border-transparent px-3 py-3 text-sm text-ink-2 hover:text-brand focus-visible:bg-brand-soft focus-visible:ring-0 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-brand data-[state=active]:shadow-none lg:px-0 lg:py-0 lg:text-base">
                 <Icon name={entry.key} className="hidden size-[18px] lg:block" />
                 {entry.label}
               </TabsTrigger>)}

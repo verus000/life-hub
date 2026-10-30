@@ -1,36 +1,25 @@
-# Next.js 版本升级
+# PostgreSQL 单数据库版本
 
-本地开发、浏览器测试和自动化测试现已改用 Docker PostgreSQL 17，配置与迁移入口见 [README.md](README.md) 和 [DATABASE.md](DATABASE.md)。下面的 SQLite 说明仅适用于既有部署兼容；本地入口不会回退 SQLite，旧数据文件保持原样。
+当前版本只支持 PostgreSQL 17。旧文件数据库适配器、旧库自动建表／补列、文件数据卷和修复文件权限的容器入口均已移除。应用不读取 data/、config.json 或 DB_FILE 类配置，也不会自动转换旧账号和记录。
 
-SQLite 数据、账号和已有会话沿用原库。启动时自动补齐表结构，并将旧 `verifications` 表中的激活令牌一次性搬入 `verification_tokens`；旧邮件的 `/?verify=...` 地址仍然可用。旧表搬空后保留，不会在重启时恢复已使用或已重发替换的令牌。
+## 本地开发与测试
 
-本地自定义数据库路径请将旧 `DB_FILE` 环境变量改为 `DB_FILE_NAME`，指向原 SQLite 文件；新版不再读取 `config.json`。默认路径仍是 `data/life-hub.db`。
+开发连接 life_hub_dev / life_hub_dev_app，测试连接独立实例的 life_hub_test / life_hub_test_app。凭据分别放在忽略的 .env.development.local、.env.test.local；配置、角色和端点校验详见 README.md。
 
-## Docker 数据卷
+结构版本由 migrations/ 管理。使用各环境独立 migrator 凭据显式执行迁移，应用账号不建表、不改结构、不写迁移历史。新的分类与 eSIM 字段继续使用现有通用结构，无需重置数据库或导入旧文件。
 
-Compose 保留原生 Node 版本的 `life-hub-data` 卷名，在同一 Compose 项目中执行升级时会继续使用原库。容器内挂载目录改为 `/data`，不改变卷里的数据库文件名。保持原 Compose 项目名（含原来的 `-p` 参数），升级前备份已有数据库，升级时不要删除数据卷。
+## Docker
 
-入口使用固定 UID/GID 1001 调整数据库目录、数据库和 SQLite 配套文件的所有者，随后降权启动应用，以兼容旧镜像由 root 创建的数据库。
+镜像使用固定非 root 身份启动 node server.js，不挂载应用数据库文件。运行时单独提供环境变量与 PostgreSQL URL。Compose 必须指定环境和对应外部数据库网络；开发和测试使用各自公共网络，生产接入独立网络。
 
-如果已部署过使用 `app-data` 的早期 Next.js 版本，应继续挂载该版本正在使用的卷。先用 `docker volume ls` 核实卷名，再创建 `compose.data.yml`，例如：
+镜像构建上下文排除所有 .env*、configs/ 和本地数据。不要把运行凭据写进 Dockerfile、构建参数或 Git。public/ 与 .next/static 均打包到 standalone 镜像中。
 
-```yaml
-volumes:
-  life-hub-data:
-    external: true
-    name: example-project_app-data
-```
+## 生产与回退
 
-将示例卷名替换为已核实的既有卷名，再用 `docker compose -f docker-compose.yml -f compose.data.yml up -d --build` 启动。不要把空卷覆盖到现有数据库上。
+本次代码更新不创建、迁移或清理生产数据库。上线前按 DATABASE.md 确认独立目标、最小权限、TLS、迁移顺序、备份恢复演练及切换／回退方案。本地 db:migrate 命令拒绝 production；不把应用启动或代码推送当作生产数据库操作授权。
 
-`APP_URL` 应填写实际对外地址；默认 Docker 端口是 8787，例如 `http://127.0.0.1:8787`。
+回退应用代码前确认数据库版本兼容；不要将 down/reset/覆盖恢复作为默认回退。数据恢复默认写入新空库并核验后再决定是否切换。
 
-## 代理和认证限流
+## 代理与邮件
 
-默认 `TRUST_PROXY=false`，忽略客户端提供的代理头。由于 NextRequest 不暴露连接的 socket 地址，直连模式下认证请求共用限流桶。
-
-只有应用端口禁止外部直连、请求全部经过可信反向代理，且代理覆盖 `X-Forwarded-For` 或在末尾追加实际来源 IP 时，才设置 `TRUST_PROXY=true`。应用取该头最右侧的有效 IP；没有该头时使用代理覆盖的 `X-Real-IP`。反代同时应覆盖 `X-Forwarded-Proto`。
-
-## JSON 历史数据
-
-旧 JSON 存储不会被 SQLite 初始化逻辑自动读取。请在旧版导出完整备份，再在新版登录后通过“导入数据”预览并合并；账号和会话不包含在条目备份中。
+APP_URL 填写实际访问地址，激活链接与会话 Cookie 的 Secure 属性由此确定。TRUST_PROXY 默认 false；仅在应用禁止外部直连且可信反代正确处理来源头时开启。真实 SMTP 另行配置，未配置时使用 console 邮件模式。
