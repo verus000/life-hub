@@ -19,7 +19,7 @@ export function DatePicker({ id, label, value, onChange, disabled }: DatePickerP
   const choose = (next: string) => { onChange(next); setOpen(false); };
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
-      <Button id={id} aria-label={label} variant="outline" disabled={disabled} className={cn('w-full min-w-0 justify-start bg-surface-soft px-3 font-normal shadow-none hover:border-line-strong hover:bg-background hover:text-foreground', !value && 'text-muted-foreground')}>
+      <Button id={id} aria-label={label} variant="outline" disabled={disabled} className={cn('w-full min-w-0 justify-start border-input bg-surface px-3.5 font-normal shadow-none hover:border-brand/50 hover:bg-background hover:text-foreground', !value && 'text-muted-foreground')}>
         <Icon name="calendar" className="size-4 text-muted-foreground" />
         <span className="truncate">{selected ? format(selected, 'yyyy年M月d日') : value || '选择日期'}</span>
         <Icon name="chevron" className="ml-auto size-4 text-muted-foreground" />

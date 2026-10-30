@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const user = await requireUser(req);
     const body = await readJson(req);
     if (!Array.isArray(body.items)) throw new AppError(400, 'items 必须是数组');
-    const result = await importItems(getDb(), body.items, user.id);
+    const result = await importItems(await getDb(), body.items, user.id);
     return NextResponse.json(result, { status: 201 });
   } catch (e) {
     return jsonError(e, req);

@@ -4,7 +4,7 @@
 import { get } from './model';
 import type { Item } from './types';
 
-export const PALETTE = ['#3B5BFD', '#22B8CF', '#7C5CFF', '#12B76A', '#F5A524', '#F04F88', '#5E9BFF', '#98A2B3'];
+export const PALETTE = Array.from({ length: 8 }, (_, i) => `var(--color-chart-${i + 1})`);
 
 export function colorAt(i: number): string {
   return PALETTE[i % PALETTE.length];

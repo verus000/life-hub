@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { NextRequest } from 'next/server';
-import { createDbAt, type Db } from '@/server/db';
+import type { Db } from '@/server/db';
 import { POST as register } from '@/app/api/auth/register/route';
 import { POST as login } from '@/app/api/auth/login/route';
 import { GET as verify } from '@/app/api/auth/verify/route';
@@ -8,19 +8,19 @@ import { GET as me } from '@/app/api/auth/me/route';
 import { POST as logout } from '@/app/api/auth/logout/route';
 import { GET as list, POST as add } from '@/app/api/items/route';
 import { POST as importItems } from '@/app/api/items/import/route';
-import { clearMail, setupEnv, verifyTokenFromOutbox } from './helpers';
+import { clearMail, freshDb, setupEnv, verifyTokenFromOutbox } from './helpers';
 
 const shared = globalThis as unknown as { __lifeHubDb?: Db };
 let db: Db;
-beforeEach(() => {
+beforeEach(async () => {
   setupEnv();
   process.env.BCRYPT_ROUNDS = '4';
   clearMail();
-  db = createDbAt(':memory:');
+  db = await freshDb();
   shared.__lifeHubDb = db;
 });
-afterEach(() => {
-  db.$client.close();
+afterEach(async () => {
+  await db.close();
   delete shared.__lifeHubDb;
 });
 

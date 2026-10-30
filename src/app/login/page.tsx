@@ -10,6 +10,6 @@ export const metadata: Metadata = { title: '登录 · 生活管理' };
 
 export default async function LoginPage() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (token && await getSessionUser(getDb(), token)) redirect('/');
+  if (token && await getSessionUser(await getDb(), token)) redirect('/');
   return <AuthCard />;
 }

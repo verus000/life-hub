@@ -2,11 +2,9 @@
    行映射与原 src/db/normalize.js 逐行对应；并发串行化与原 src/routes.js 的 mutate 队列一致。 */
 
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, isNull } from 'drizzle-orm';
-import { getDb } from '../db';
-import { items } from '../db/schema';
+import type { items } from '../db/pg-schema';
 import type { Db } from '../db';
-import type { ItemRow } from '../db/schema';
+import type { ItemRow } from '../db/pg-schema';
 import { badRequest, conflict, notFound } from '../errors';
 import { knownCode, normalizeDetail, partition, validate, CYCLES, STATUSES, CATEGORIES } from '@/lib/records';
 import type { Item, ItemInput, ValidatedFields } from '@/lib/types';
@@ -104,7 +102,7 @@ function mutate<T>(task: () => Promise<T>): Promise<T> {
 }
 
 export async function listItems(db: Db, userId: number): Promise<Item[]> {
-  const rows = await db.select().from(items).where(eq(items.userId, userId)).orderBy(asc(items.id));
+  const rows = await db.find('items', { userId }, { orderBy: 'id' });
   return rows.map(rowToItem);
 }
 
@@ -120,7 +118,7 @@ function validateOr400(input: ItemInput, patch?: boolean): ValidatedFields {
 export async function addItem(db: Db, input: ItemInput, userId: number): Promise<Item> {
   const v = validateOr400(input);
   const inserted = await mutate(async () => {
-    const rows = await db.insert(items).values(toInsertValues(v, userId)).returning();
+    const rows = await db.insert('items', toInsertValues(v, userId));
     return rows[0];
   });
   return rowToItem(inserted);
@@ -135,22 +133,21 @@ export async function updateItem(
 ): Promise<Item> {
   const v = validateOr400(input, true);
   return mutate(async () => {
-    const current = (await db.select().from(items).where(and(eq(items.id, id), eq(items.userId, userId))).limit(1))[0];
+    const current = (await db.find('items', { id, userId }, { limit: 1 }))[0];
     if (!current) throw notFound('记录不存在');
     if (expectedUpdatedAt !== undefined && current.updatedAt !== expectedUpdatedAt) {
       throw conflict('记录已在其他页面变更，请刷新后重试');
     }
-    const rows = await db
-      .update(items)
-      .set(toPatchValues(v))
-      .where(and(eq(items.id, id), eq(items.userId, userId)))
-      .returning();
+    const rows = await db.update('items', toPatchValues(v), {
+      id, userId, ...(expectedUpdatedAt === undefined ? {} : { updatedAt: expectedUpdatedAt }),
+    });
+    if (!rows[0]) throw conflict('记录已在其他页面变更，请刷新后重试');
     return rowToItem(rows[0]);
   });
 }
 
 export async function removeItem(db: Db, id: number, userId: number): Promise<Item> {
-  const rows = await db.delete(items).where(and(eq(items.id, id), eq(items.userId, userId))).returning();
+  const rows = await db.delete('items', { id, userId });
   if (!rows[0]) throw notFound('记录不存在');
   return rowToItem(rows[0]);
 }
@@ -171,12 +168,10 @@ export async function importItems(
     const existing = await listItems(db, userId);
     const part = partition(batch as ItemInput[], existing);
     if (part.items.length > 0) {
-      /* 单批保守限制参数数量；同步事务中不能使用 async 回调。 */
-      db.transaction((tx) => {
+      /* 同一事务分批写入；PostgreSQL 和兼容驱动均等待提交。 */
+      await db.transaction(async (tx) => {
         for (let offset = 0; offset < part.items.length; offset += 50) {
-          tx.insert(items)
-            .values(part.items.slice(offset, offset + 50).map((x) => toInsertValues(x as ValidatedFields, userId)))
-            .run();
+          await tx.insert('items', part.items.slice(offset, offset + 50).map((x) => toInsertValues(x as ValidatedFields, userId)));
         }
       });
     }
@@ -185,11 +180,11 @@ export async function importItems(
 }
 
 export async function clearItems(db: Db, userId: number): Promise<void> {
-  await db.delete(items).where(eq(items.userId, userId));
+  await db.delete('items', { userId });
 }
 
 /* 旧版单用户数据认领（userId 为 NULL 的行） */
 export async function claimLegacyItems(db: Db, userId: number): Promise<number> {
-  const rows = await db.update(items).set({ userId }).where(isNull(items.userId)).returning({ id: items.id });
+  const rows = await db.update('items', { userId }, { userId: null });
   return rows.length;
 }

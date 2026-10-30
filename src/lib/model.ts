@@ -338,12 +338,14 @@ export function dueEntries(items: Item[]): DueEntry[] {
   return entries.sort((a, b) => a.d - b.d);
 }
 
-export function totals(items: Item[], annual?: boolean): string {
+export function totals(items: Item[], annual?: boolean, currencyCodes = false): string {
   const sums: Record<string, number> = {};
   items.filter(isActive).forEach((x) => {
     if (annual && x.cycle === 'once') return;
     const currency = x.currency || 'CNY';
     sums[currency] = (sums[currency] || 0) + (annual ? annualAmount(x) : Number(x.amount) || 0);
   });
-  return Object.keys(sums).sort().map((currency) => moneyLabel(sums[currency], currency)).join(' · ');
+  return Object.keys(sums).sort().map((currency) => currencyCodes
+    ? currency + ' ' + sums[currency].toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+    : moneyLabel(sums[currency], currency)).join(' · ');
 }

@@ -3,6 +3,8 @@ import { SESSION_COOKIE } from '@/server/auth/constants';
 
 /* 页面级快速闸门：只检查 Cookie 存在性，真正的会话校验在页面与 API 层做 */
 const PUBLIC_PATHS = ['/login', '/register', '/verify'];
+/* 登录页也会使用的公开装饰，仅放行这个静态文件，不扩大页面访问范围。 */
+const PUBLIC_ASSETS = ['/images/mint-orbit.png'];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -17,7 +19,7 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (!hasSession && !PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+  if (!hasSession && !PUBLIC_ASSETS.includes(pathname) && !PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

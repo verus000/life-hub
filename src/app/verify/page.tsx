@@ -4,7 +4,8 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Logo, OrbitArtwork } from '@/components/icons';
+import { AuthShell } from '@/components/auth/AuthShell';
+import { Icon } from '@/components/icons';
 import { Btn } from '@/components/ui';
 
 type VerificationResult = {
@@ -58,19 +59,9 @@ function VerifyBody() {
   }, [token]);
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-bg px-4 py-10 sm:px-6">
-      <div className="w-full max-w-[420px] overflow-hidden rounded-[28px] bg-surface border border-line shadow-card text-center">
-        <div className="flex flex-col items-center bg-hero px-7 pb-5 pt-7">
-          <div className="flex items-center justify-center gap-2.5 text-brand">
-            <Logo className="h-9 w-9" />
-            <span className="text-base font-extrabold tracking-wide text-ink">生活管理</span>
-          </div>
-          <OrbitArtwork className="mt-2 h-32 w-40" />
-        </div>
-        <div className="px-7 py-7">
-          <h1 className="m-0 mb-3 text-xl font-bold text-ink">
-            {state === 'loading' ? '正在激活…' : state === 'ok' ? '激活成功' : '激活失败'}
-          </h1>
+    <AuthShell title={state === 'loading' ? '正在激活…' : state === 'ok' ? '激活成功' : '激活失败'} subtitle="邮箱验证">
+        <div className="text-center">
+          <Icon name={state === 'ok' ? 'check' : 'bell'} className={'mx-auto mb-5 size-9 ' + (state === 'fail' ? 'text-danger' : 'text-brand')} />
           <p className="m-0 break-words text-sm leading-relaxed text-ink-2" role="status">{message}</p>
           {state === 'ok' && (
             <Btn variant="primary" className="mt-5 w-full" onClick={() => (window.location.href = '/')}>
@@ -83,8 +74,7 @@ function VerifyBody() {
             </Btn>
           )}
         </div>
-      </div>
-    </main>
+    </AuthShell>
   );
 }
 

@@ -4,14 +4,14 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { middleware } from '@/middleware';
 import { SESSION_COOKIE } from '@/server/auth/constants';
-import { createDbAt, type Db } from '@/server/db';
+import type { Db } from '@/server/db';
 import { createSession } from '@/server/auth/service';
 import { AuthCard } from '@/components/auth/AuthCard';
 import LoginPage from '@/app/login/page';
 import RegisterPage from '@/app/register/page';
 import HomePage from '@/app/page';
 import { GET as me } from '@/app/api/auth/me/route';
-import { setupEnv } from './helpers';
+import { freshDb, setupEnv } from './helpers';
 
 const cookie = vi.hoisted(() => ({ token: undefined as string | undefined }));
 vi.mock('next/headers', () => ({
@@ -20,14 +20,14 @@ vi.mock('next/headers', () => ({
 
 const shared = globalThis as unknown as { __lifeHubDb?: Db };
 let db: Db;
-beforeEach(() => {
+beforeEach(async () => {
   setupEnv();
-  db = createDbAt(':memory:');
+  db = await freshDb();
   shared.__lifeHubDb = db;
   cookie.token = undefined;
 });
-afterEach(() => {
-  db.$client.close();
+afterEach(async () => {
+  await db.close();
   delete shared.__lifeHubDb;
 });
 
@@ -52,17 +52,23 @@ describe('会话页面跳转', () => {
 
   it('真实有效会话从登录/注册页进入首页，过期后允许重新登录', async () => {
     const now = new Date().toISOString();
-    db.$client.prepare('INSERT INTO users (email, password_hash, email_verified_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-      .run('page@example.test', 'unused', now, now, now);
-    cookie.token = (await createSession(db, 1)).token;
+    const [user] = await db.insert('users', { email: 'page@example.test', passwordHash: 'unused', emailVerifiedAt: now, createdAt: now, updatedAt: now });
+    cookie.token = (await createSession(db, user.id)).token;
     await expect(LoginPage()).rejects.toMatchObject({ digest: expect.stringContaining(';/;') });
     await expect(RegisterPage()).rejects.toMatchObject({ digest: expect.stringContaining(';/;') });
-    db.$client.exec("UPDATE sessions SET expires_at = '2000-01-01T00:00:00.000Z'");
+    await db.update('sessions', { expiresAt: '2000-01-01T00:00:00.000Z' }, { userId: user.id });
     expect(renderToStaticMarkup(await LoginPage())).toContain('current-password');
   });
 
   it('未登录访问首页仍跳登录页', () => {
     expect(new URL(middleware(new NextRequest('http://localhost/')).headers.get('location')!).pathname).toBe('/login');
+  });
+
+  it('未登录允许加载登录页装饰，其他静态路径仍受页面闸门保护', () => {
+    expect(middleware(new NextRequest('http://localhost/images/mint-orbit.png')).headers.get('location')).toBeNull();
+    for (const path of ['/images/private.png', '/images/mint-orbit.png/secret', '/data/life-hub.db']) {
+      expect(new URL(middleware(new NextRequest('http://localhost' + path)).headers.get('location')!).pathname).toBe('/login');
+    }
   });
 });
 

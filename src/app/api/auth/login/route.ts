@@ -6,7 +6,7 @@ import { clientIp, jsonError, readJson, setSessionCookie } from '@/server/api-he
 export async function POST(req: NextRequest) {
   try {
     const body = await readJson(req);
-    const { user, session } = await login(getDb(), body.email, body.password, clientIp(req));
+    const { user, session } = await login(await getDb(), body.email, body.password, clientIp(req));
     const res = NextResponse.json({ ok: true, id: user.id, email: user.email });
     setSessionCookie(res, req, session.token, session.maxAgeSeconds);
     return res;

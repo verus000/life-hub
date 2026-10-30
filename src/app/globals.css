@@ -11,11 +11,11 @@
   --primary: var(--color-brand);
   --primary-foreground: var(--color-surface);
   --secondary: var(--color-brand-soft);
-  --secondary-foreground: var(--color-brand);
+  --secondary-foreground: var(--color-mint-ink);
   --muted: var(--color-surface-soft);
   --muted-foreground: var(--color-ink-3);
   --accent: var(--color-brand-soft);
-  --accent-foreground: var(--color-brand);
+  --accent-foreground: var(--color-mint-ink);
   --destructive: var(--color-danger);
   --destructive-foreground: var(--color-surface);
   --border: var(--color-line);
@@ -50,45 +50,56 @@
 }
 
 @theme {
-  /* 现代科技感：中性冷灰底 + 近黑正文 + 电光蓝强调；语义色取高饱和、去土色。
-     小号文字颜色均已核对白底对比度 ≥ 4.5:1。 */
-  --color-bg: #F5F6F8;
+  /* 薄荷青：冷白底、深墨绿正文、通透薄荷光感。小字与按钮使用深青，避免浅色文字。 */
+  --color-bg: #FCFFFE;
   --color-surface: #FFFFFF;
-  --color-surface-soft: #F2F3F6;
-  --color-line: #E5E7EB;
-  --color-line-strong: #D1D5DC;
-  --color-ink: #0E1116;
-  --color-ink-2: #474E5B;
-  --color-ink-3: #626978;
-  --color-brand: #3B5BFD;
-  --color-brand-hover: #2D4AE6;
-  --color-brand-soft: #EEF1FF;
-  --color-hero: #EEF1FF;
-  --color-hero-ink: #1D2A7A;
-  --color-hero-muted: #4A548F;
-  --color-sky: #DDE4FF;
-  --color-sun: #FFD54F;
-  --color-sun-shade: #F5BF2E;
-  --color-cheek: #FF9A7A;
-  --color-mint: #E6F8EE;
-  --color-mint-ink: #12733A;
-  --color-lemon: #FFF4D6;
-  --color-lemon-ink: #A44D06;
-  --color-lilac: #F2EDFF;
-  --color-lilac-ink: #6D35E0;
-  --color-danger: #C9281C;
-  --color-danger-soft: #FEEEEC;
-  --color-warn: #B54708;
-  --color-warn-soft: #FFF4D6;
-  --color-ok: #12733A;
-  --color-ok-soft: #E6F8EE;
-  --color-overlay: #0E111666;
+  --color-surface-soft: #F1FBF8;
+  --color-line: #DDEBE7;
+  --color-line-strong: #AACAC1;
+  --color-ink: #10352F;
+  --color-ink-2: #4B6B64;
+  --color-ink-3: #526F69;
+  --color-brand: #007F72;
+  --color-brand-hover: #00695E;
+  --color-brand-soft: #E8F8F3;
+  --color-hero: #F1FBF8;
+  --color-hero-ink: #10352F;
+  --color-hero-muted: #4B6B64;
+  --color-sky: #DDF6EF;
+  --color-sun: #41DFBA;
+  --color-sun-shade: #008A7A;
+  --color-cheek: #A0F1DF;
+  --color-mint: #E8F8F3;
+  --color-mint-ink: #00695E;
+  --color-lemon: #E8F8F3;
+  --color-lemon-ink: #00695E;
+  --color-lilac: #E8F8F3;
+  --color-lilac-ink: #00695E;
+  --color-danger: #BD4152;
+  --color-danger-soft: #FFF2F4;
+  --color-warn: #00695E;
+  --color-warn-soft: #E8F8F3;
+  --color-ok: #00695E;
+  --color-ok-soft: #E8F8F3;
+  --color-overlay: #10352F40;
 
-  --shadow-card: 0 0 0 1px #0E11160D, 0 1px 2px #0E11160A, 0 8px 24px -6px #0E11160F;
-  --shadow-popover: 0 0 0 1px #0E11160F, 0 12px 32px -4px #0E11161F;
-  --shadow-dialog: 0 0 0 1px #0E11160F, 0 24px 64px -8px #0E111633;
+  --shadow-card: 0 1px 4px #10352F03;
+  --shadow-popover: 0 0 0 1px #10352F0D, 0 12px 32px -4px #10352F18;
+  --shadow-dialog: 0 0 0 1px #10352F08, 0 24px 72px -12px #10352F26;
 
   --font-sans: "Inter", "Segoe UI Variable Text", "Segoe UI Variable", -apple-system, "SF Pro Text", "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+/* 图表运行时按分类索引取色，显式保留，避免生产构建裁掉动态引用。 */
+@theme static {
+  --color-chart-1: #008A7A;
+  --color-chart-2: #32C9B5;
+  --color-chart-3: #99E8D7;
+  --color-chart-4: #24777C;
+  --color-chart-5: #60B3A0;
+  --color-chart-6: #B4D9CB;
+  --color-chart-7: #39738C;
+  --color-chart-8: #769F99;
 }
 
 @layer base {
@@ -101,6 +112,10 @@
     margin: 0;
     min-height: 100vh;
     background: var(--color-bg);
+    background-image: url('/images/mint-orbit.png');
+    background-repeat: no-repeat;
+    background-position: left 88px;
+    background-size: 520px auto;
     color: var(--color-ink);
     font: 14px/1.65 var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -121,7 +136,7 @@
 
 @layer components {
   .category-icon {
-    @apply grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand;
+    @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand;
   }
 
   .category-icon[data-category='broadband'] {
@@ -136,6 +151,78 @@
     @apply bg-lilac text-lilac-ink;
   }
 
+}
+
+@layer components {
+  .category-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.85fr) auto;
+    align-items: center;
+    column-gap: 24px;
+  }
+
+  .category-row {
+    padding-block: 28px;
+  }
+
+  .category-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 156px;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    background-size: 240px auto;
+    background-position: left 104px;
+  }
+
+  .category-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 12px;
+    padding-block: 20px;
+  }
+
+  .category-name {
+    grid-column: 2 / -1;
+    grid-row: 1;
+  }
+
+  .category-date {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: start;
+  }
+
+  .category-amount {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .category-actions {
+    grid-column: 3;
+    grid-row: 2;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .category-asset-row {
+    padding-block: 14px;
+  }
+
+  .category-asset-row .category-date {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .category-asset-row .category-amount {
+    grid-column: 2;
+    grid-row: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,10 +1,7 @@
 import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({
-  dialect: 'sqlite',
-  schema: './src/server/db/schema.ts',
+  dialect: 'postgresql',
+  schema: './src/server/db/pg-schema.ts',
   out: './drizzle',
-  dbCredentials: {
-    url: process.env.DB_FILE_NAME ?? './data/life-hub.db',
-  },
 });

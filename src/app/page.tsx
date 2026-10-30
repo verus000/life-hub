@@ -10,8 +10,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const user = await getSessionUser(getDb(), token);
+  const user = await getSessionUser(await getDb(), token);
   if (!user) redirect('/login');
-  const items = await listItems(getDb(), user.id);
+  const items = await listItems(await getDb(), user.id);
   return <Dashboard initialItems={items} email={user.email} />;
 }

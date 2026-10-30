@@ -22,7 +22,7 @@ beforeAll(() => {
 
 describe('注册与验证', () => {
   it('注册创建未激活用户并发送验证邮件', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     clearMail();
     const r = await register(db, 'SMOKE@test.dev ', 'pass-word-123', 'ip-1');
     expect(r.message).toContain('查收验证邮件');
@@ -44,7 +44,7 @@ describe('注册与验证', () => {
   });
 
   it('重复注册已激活邮箱被拒绝', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     clearMail();
     await register(db, 'dup@test.dev', 'pass-word-123', 'ip-a');
     await verify(db, verifyTokenFromOutbox());
@@ -52,24 +52,22 @@ describe('注册与验证', () => {
   });
 
   it('无效邮箱与短密码返回 400', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     await expect(register(db, 'not-an-email', 'pass-word-123', 'ip-c')).rejects.toMatchObject({ status: 400 });
     await expect(register(db, nextEmail(), 'short', 'ip-d')).rejects.toMatchObject({ status: 400 });
   });
 
   it('过期或伪造令牌返回 400', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     await expect(verify(db, 'f'.repeat(64))).rejects.toMatchObject({ status: 400 });
     await expect(verify(db, 'bad-token')).rejects.toMatchObject({ status: 400 });
   });
 
   it('首个激活用户认领旧版数据，后续用户从空开始', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     clearMail();
     /* 直接向库中写入旧版无主数据 */
-    db.$client
-      .prepare("INSERT INTO items (category, title, amount, created_at, updated_at) VALUES ('phone', '旧数据', 19, '2025-01-01', '2025-01-01')")
-      .run();
+    await db.insert('items', { category: 'phone', title: '旧数据', amount: 19, createdAt: '2025-01-01', updatedAt: '2025-01-01' });
 
     await register(db, 'first@test.dev', 'pass-word-123', 'ip-e');
     const r1 = await verify(db, verifyTokenFromOutbox());
@@ -88,7 +86,7 @@ describe('注册与验证', () => {
 
 describe('登录安全', () => {
   it('密码错误与不存在用户统一提示', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     clearMail();
     await register(db, 'safe@test.dev', 'pass-word-123', 'ip-g');
     await verify(db, verifyTokenFromOutbox());
@@ -101,7 +99,7 @@ describe('登录安全', () => {
 
 describe('会话', () => {
   it('有效令牌解析用户，登出后失效', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     clearMail();
     await register(db, 'sess@test.dev', 'pass-word-123', 'ip-j');
     await verify(db, verifyTokenFromOutbox());
@@ -113,14 +111,14 @@ describe('会话', () => {
   });
 
   it('伪造令牌不产生会话', async () => {
-    expect(await getSessionUser(freshDb(), 'a'.repeat(64))).toBeNull();
-    expect(await getSessionUser(freshDb(), undefined)).toBeNull();
+    expect(await getSessionUser(await freshDb(), 'a'.repeat(64))).toBeNull();
+    expect(await getSessionUser(await freshDb(), undefined)).toBeNull();
   });
 });
 
 describe('限流', () => {
   it('连续登录失败超过阈值返回 429', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     for (let i = 0; i < 20; i++) {
       await login(db, 'nobody@test.dev', 'bad-pass-000', 'rate-ip').catch(() => undefined);
     }
@@ -128,7 +126,7 @@ describe('限流', () => {
   });
 
   it('resend 幂等返回统一提示', async () => {
-    const db = freshDb();
+    const db = await freshDb();
     const r = await resend(db, 'anyone@test.dev', 'resend-ip');
     expect(r.message).toContain('若该邮箱已注册');
   });

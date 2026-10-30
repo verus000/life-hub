@@ -50,7 +50,7 @@ export function sessionToken(req: NextRequest): string | undefined {
 }
 
 export async function requireUser(req: NextRequest): Promise<PublicUser> {
-  const user = await getSessionUser(getDb(), sessionToken(req));
+  const user = await getSessionUser(await getDb(), sessionToken(req));
   if (!user) throw new AppError(401, '请先登录');
   return user;
 }

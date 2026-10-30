@@ -3,9 +3,6 @@
 
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { and, eq, sql } from 'drizzle-orm';
-import { getDb } from '../db';
-import { sessions, users, verificationTokens } from '../db/schema';
 import type { Db } from '../db';
 import { loadConfig } from '../config';
 import { badRequest, forbidden, tooManyRequests, unauthorized } from '../errors';
@@ -53,16 +50,16 @@ function allow(action: string, key: string): boolean {
   return true;
 }
 
-export interface PublicUser {
+export type PublicUser = {
   id: number;
   email: string;
   createdAt: string;
-}
+};
 
-export interface SessionInfo {
+export type SessionInfo = {
   token: string;
   maxAgeSeconds: number;
-}
+};
 
 function nowISO(): string {
   return new Date().toISOString();
@@ -74,7 +71,7 @@ export async function createSession(db: Db, userId: number): Promise<SessionInfo
   const cfg = loadConfig();
   const ttlMs = cfg.SESSION_TTL_DAYS * 86400000;
   const token = newToken();
-  await db.insert(sessions).values({
+  await db.insert('sessions', {
     tokenHash: sha256(token),
     userId,
     expiresAt: new Date(Date.now() + ttlMs).toISOString(),
@@ -89,37 +86,34 @@ export async function getSessionUser(db: Db, token: string | undefined): Promise
   const cfg = loadConfig();
   const ttlMs = cfg.SESSION_TTL_DAYS * 86400000;
   const tokenHash = sha256(token);
-  const rows = await db.select().from(sessions).where(eq(sessions.tokenHash, tokenHash)).limit(1);
+  const rows = await db.find('sessions', { tokenHash }, { limit: 1 });
   const session = rows[0];
   if (!session) return null;
   const expiresAt = Date.parse(session.expiresAt || '');
   if (!expiresAt || expiresAt < Date.now()) {
-    await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+    await db.delete('sessions', { tokenHash });
     return null;
   }
   if (expiresAt - Date.now() < ttlMs / 2) {
-    await db
-      .update(sessions)
-      .set({ expiresAt: new Date(Date.now() + ttlMs).toISOString() })
-      .where(eq(sessions.tokenHash, tokenHash));
+    await db.update('sessions', { expiresAt: new Date(Date.now() + ttlMs).toISOString() }, { tokenHash });
   }
-  const userRows = await db.select().from(users).where(eq(users.id, session.userId)).limit(1);
+  const userRows = await db.find('users', { id: session.userId }, { limit: 1 });
   const user = userRows[0];
   return user && user.emailVerifiedAt ? { id: user.id, email: user.email, createdAt: user.createdAt } : null;
 }
 
 export async function deleteSession(db: Db, token: string | undefined): Promise<void> {
   if (token && TOKEN_RE.test(token)) {
-    await db.delete(sessions).where(eq(sessions.tokenHash, sha256(token)));
+    await db.delete('sessions', { tokenHash: sha256(token) });
   }
 }
 
 /* ---------- 注册 / 验证 / 登录 ---------- */
 
 async function issueVerification(db: Db, userId: number, email: string): Promise<void> {
-  await db.delete(verificationTokens).where(eq(verificationTokens.userId, userId));
+  await db.delete('verificationTokens', { userId });
   const token = newToken();
-  await db.insert(verificationTokens).values({
+  await db.insert('verificationTokens', {
     tokenHash: sha256(token),
     userId,
     expiresAt: new Date(Date.now() + VERIFY_TTL_HOURS * 3600000).toISOString(),
@@ -148,7 +142,7 @@ export async function register(
   if (!EMAIL_RE.test(mail)) throw badRequest('邮箱格式不正确');
   if (pass.length < 8) throw badRequest('密码至少需要 8 位');
 
-  const existing = (await db.select().from(users).where(eq(users.email, mail)).limit(1))[0];
+  const existing = (await db.find('users', { email: mail }, { limit: 1 }))[0];
   if (existing && existing.emailVerifiedAt) throw badRequest('该邮箱已注册，请直接登录');
 
   const cfg = loadConfig();
@@ -156,10 +150,9 @@ export async function register(
   if (existing) {
     userId = existing.id;
   } else {
-    const inserted = await db
-      .insert(users)
-      .values({ email: mail, passwordHash: await bcrypt.hash(pass, cfg.BCRYPT_ROUNDS), createdAt: nowISO(), updatedAt: nowISO() })
-      .returning({ id: users.id });
+    const inserted = await db.insert('users', {
+      email: mail, passwordHash: await bcrypt.hash(pass, cfg.BCRYPT_ROUNDS), createdAt: nowISO(), updatedAt: nowISO(),
+    });
     userId = inserted[0].id;
   }
   await issueVerification(db, userId, mail);
@@ -172,24 +165,24 @@ export async function verify(
 ): Promise<{ email: string; claimed: number; session: SessionInfo }> {
   if (!TOKEN_RE.test(token)) throw badRequest('激活链接无效');
   const tokenHash = sha256(token);
-  const record = (await db.select().from(verificationTokens).where(eq(verificationTokens.tokenHash, tokenHash)).limit(1))[0];
+  const record = (await db.find('verificationTokens', { tokenHash }, { limit: 1 }))[0];
   const expiresAt = Date.parse(record?.expiresAt || '');
   if (!record || !expiresAt || expiresAt < Date.now()) {
-    if (record) await db.delete(verificationTokens).where(eq(verificationTokens.tokenHash, tokenHash));
+    if (record) await db.delete('verificationTokens', { tokenHash });
     throw badRequest('激活链接无效或已过期，请重新发送验证邮件');
   }
 
   /* 第一个完成激活的用户认领旧版单用户数据 */
-  const firstVerified = (await db.select({ n: sql<number>`count(*)` }).from(users).where(sql`${users.emailVerifiedAt} is not null`))[0].n === 0;
+  const firstVerified = (await db.find('users', {}, { notNull: ['emailVerifiedAt'], limit: 1 })).length === 0;
 
-  await db.update(users).set({ emailVerifiedAt: nowISO(), updatedAt: nowISO() }).where(eq(users.id, record.userId));
-  await db.delete(verificationTokens).where(eq(verificationTokens.tokenHash, tokenHash));
+  await db.update('users', { emailVerifiedAt: nowISO(), updatedAt: nowISO() }, { id: record.userId });
+  await db.delete('verificationTokens', { tokenHash });
 
   let claimed = 0;
   if (firstVerified) claimed = await claimLegacyItems(db, record.userId);
 
   const session = await createSession(db, record.userId);
-  const user = (await db.select().from(users).where(eq(users.id, record.userId)).limit(1))[0];
+  const user = (await db.find('users', { id: record.userId }, { limit: 1 }))[0];
   return { email: user ? user.email : '', claimed, session };
 }
 
@@ -202,7 +195,7 @@ export async function login(
   if (!allow('login', ip)) throw tooManyRequests('登录尝试过于频繁，请稍后再试');
   const mail = normalizeEmail(email);
   const pass = String(password || '');
-  const user = mail ? (await db.select().from(users).where(eq(users.email, mail)).limit(1))[0] : undefined;
+  const user = mail ? (await db.find('users', { email: mail }, { limit: 1 }))[0] : undefined;
   if (!user) {
     await dummyCompare(pass);
     throw unauthorized('邮箱或密码错误');
@@ -219,7 +212,7 @@ export async function login(
 export async function resend(db: Db, email: unknown, ip: string): Promise<{ message: string }> {
   const mail = normalizeEmail(email);
   if (!allow('resend', ip + '|' + mail)) throw tooManyRequests('发送过于频繁，请稍后再试');
-  const user = mail ? (await db.select().from(users).where(eq(users.email, mail)).limit(1))[0] : undefined;
+  const user = mail ? (await db.find('users', { email: mail }, { limit: 1 }))[0] : undefined;
   if (user && !user.emailVerifiedAt) await issueVerification(db, user.id, user.email);
   return { message: '若该邮箱已注册且尚未验证，将收到新的验证邮件' };
 }

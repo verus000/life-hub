@@ -3,6 +3,7 @@ node_modules/
 
 # 环境变量（含密钥，绝不提交）
 .env
+.env*.local
 
 # 本地运行数据（可能包含真实个人信息）
 data/
@@ -12,6 +13,7 @@ config.json
 
 # 构建产物
 .next/
+.next-*/
 out/
 dist/
 next-env.d.ts

@@ -1,5 +1,7 @@
 # Next.js 版本升级
 
+本地开发、浏览器测试和自动化测试现已改用 Docker PostgreSQL 17，配置与迁移入口见 [README.md](README.md) 和 [DATABASE.md](DATABASE.md)。下面的 SQLite 说明仅适用于既有部署兼容；本地入口不会回退 SQLite，旧数据文件保持原样。
+
 SQLite 数据、账号和已有会话沿用原库。启动时自动补齐表结构，并将旧 `verifications` 表中的激活令牌一次性搬入 `verification_tokens`；旧邮件的 `/?verify=...` 地址仍然可用。旧表搬空后保留，不会在重启时恢复已使用或已重发替换的令牌。
 
 本地自定义数据库路径请将旧 `DB_FILE` 环境变量改为 `DB_FILE_NAME`，指向原 SQLite 文件；新版不再读取 `config.json`。默认路径仍是 `data/life-hub.db`。

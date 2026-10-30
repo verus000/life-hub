@@ -78,7 +78,7 @@ function FieldRow({ f, value, onChange }: { f: FieldDef; value: string; onChange
       {f.type === 'suggest' && <div className="-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
         {(f.presets || []).map((preset) => <Button key={preset} size="xs" variant="outline"
           aria-pressed={value === preset}
-          className={'shrink-0 rounded-full font-normal shadow-none ' + (value === preset ? 'border-brand bg-brand-soft text-brand' : 'text-ink-2')}
+          className={'shrink-0 rounded-full font-normal shadow-none ' + (value === preset ? 'border-brand bg-brand-soft text-mint-ink' : 'text-ink-2')}
           onClick={() => onChange(preset)}>{preset}</Button>)}
       </div>}
     </>;
@@ -181,7 +181,7 @@ export function ItemForm({
   return (
     <Modal
       title={(isEdit ? '编辑' : '添加') + def.label}
-      description="填好必要信息，更多细节可以稍后补充。"
+      description={category === 'phone' ? '先记下号码与保活日期，其余按需补充。' : '填好必要信息，更多细节可以稍后补充。'}
       onClose={busy ? () => undefined : onClose}
       footer={
         <>
@@ -195,26 +195,27 @@ export function ItemForm({
             取消
           </Btn>
           <Btn variant="primary" disabled={busy} type="submit" form={formId}>
-            {busy ? '保存中…' : '保存'}
+            {busy ? '保存中…' : isEdit ? '保存修改' : '保存' + def.label}
           </Btn>
         </>
       }
     >
       <form id={formId} onSubmit={submit} noValidate>
-        <div className="grid gap-6">
+        <div className="grid gap-7">
           {layout.sections.map((s) => (
             <fieldset key={s.title} className="m-0 min-w-0 border-0 p-0">
-              <legend className="mb-3 flex w-full items-center gap-3 p-0 text-xs font-semibold text-ink-3">
+              <legend className="mb-4 flex w-full items-center gap-3 p-0 text-base font-semibold text-ink">
                 {s.title}<span className="h-px flex-1 bg-line" aria-hidden="true" />
               </legend>
               <div className="grid gap-4">{renderRows(s.rows)}</div>
             </fieldset>
           ))}
         </div>
+        {category === 'phone' && <p className="m-0 mt-4 text-xs text-ink-2">保活周期与缴费周期可分别设置。</p>}
         {more.length > 0 && (
           <Collapsible className="group mt-6">
-            <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto w-full justify-between gap-3 rounded-xl bg-surface-soft px-4 py-3 text-[13px] text-ink-2 hover:bg-brand-soft">
-              <span className="flex min-w-0 items-baseline gap-2">更多信息<span className="truncate font-normal text-ink-3">{moreLabels}</span></span>
+            <CollapsibleTrigger asChild><Button variant="ghost" className="h-auto w-full justify-between gap-3 rounded-none border-y border-line px-0 py-4 text-sm text-ink hover:bg-brand-soft">
+              <span className="flex min-w-0 flex-col items-start gap-1 text-left">更多信息<span className="max-w-full truncate text-xs font-normal text-ink-3">{moreLabels}</span></span>
               <Icon name="chevron" className="size-4 group-data-[state=open]:rotate-180" />
             </Button></CollapsibleTrigger>
             <CollapsibleContent><div className="grid gap-4 pt-4">{renderRows(more)}</div></CollapsibleContent>

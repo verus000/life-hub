@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Button, type ButtonProps } from './ui/button';
 import { Badge as BaseBadge } from './ui/badge';
 import { Icon } from './icons';
+import { validDate } from '@/lib/records';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from './ui/alert-dialog';
 
@@ -31,7 +32,7 @@ export function Modal({ title, description, onClose, children, footer }: { title
   return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent aria-describedby={description ? descriptionId : undefined} onCloseAutoFocus={onCloseAutoFocus}>
       <DialogHeader><DialogTitle>{title}</DialogTitle>{description && <DialogDescription id={descriptionId}>{description}</DialogDescription>}</DialogHeader>
-      <div className="min-h-0 overflow-y-auto px-6 pb-6 text-sm">{children}</div>
+      <div className="min-h-0 overflow-y-auto px-6 pb-6 text-sm sm:px-8 sm:pb-8">{children}</div>
       {footer && <DialogFooter>{footer}</DialogFooter>}
     </DialogContent>
   </Dialog>;
@@ -40,7 +41,7 @@ export function Modal({ title, description, onClose, children, footer }: { title
 const BADGE_CLASS: Record<string, string> = {
   overdue: 'border-danger/10 bg-danger-soft text-danger',
   today: 'border-warn/10 bg-warn-soft text-warn',
-  soon: 'border-brand/10 bg-brand-soft text-brand',
+  soon: 'border-brand/10 bg-brand-soft text-mint-ink',
   fine: 'border-border bg-muted/50 text-muted-foreground',
   none: 'border-transparent bg-muted text-muted-foreground',
 };
@@ -48,14 +49,6 @@ const BADGE_CLASS: Record<string, string> = {
 export function Badge({ tone, children }: { tone: string; children: ReactNode }) {
   return <BaseBadge className={cn(BADGE_CLASS[tone] || BADGE_CLASS.none)}>{children}</BaseBadge>;
 }
-
-const TILE_BAND: Record<string, string> = {
-  overdue: 'bg-danger text-white',
-  today: 'bg-sun text-ink',
-  soon: 'bg-brand text-white',
-  fine: 'bg-ink-3 text-white',
-  none: 'bg-line-strong text-ink-2',
-};
 
 export const STATUS_TEXT: Record<string, string> = {
   overdue: 'font-medium text-danger',
@@ -65,20 +58,21 @@ export const STATUS_TEXT: Record<string, string> = {
   none: 'text-ink-3',
 };
 
-/* 日历块：像一页撕下的日历，顶部月份色带随到期状态变色；无日期时显示“未设”。 */
+/* 本地日历日期：细数字与星期保持对齐，无彩色日历色带。 */
 export function DateTile({ date, tone }: { date?: string; tone: string }) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || '');
-  return <span className="flex h-[52px] w-12 shrink-0 flex-col overflow-hidden rounded-xl bg-surface text-center ring-1 ring-line" aria-hidden="true">
-    <span className={cn('text-[11px] font-semibold leading-[18px]', TILE_BAND[tone] || TILE_BAND.none)}>{m ? Number(m[2]) + '月' : '未设'}</span>
-    <span className="grid flex-1 place-items-center text-lg font-bold leading-none text-ink tabular-nums">{m ? Number(m[3]) : '—'}</span>
-  </span>;
+  if (!date || !validDate(date)) return <span className="inline-flex shrink-0 flex-col gap-1 text-ink-3"><span className="text-xl">—</span><span className="text-xs">未设</span></span>;
+  const localDate = new Date(date + 'T00:00:00');
+  return <time dateTime={date} title={date} data-tone={tone} className="inline-flex shrink-0 flex-col gap-1 text-ink">
+    <span className="text-lg font-semibold leading-7 tracking-tight tabular-nums sm:text-[28px] sm:leading-9">{date.slice(5).replace('-', '.')}</span>
+    <span className="text-xs font-normal text-ink-3 sm:text-sm">{localDate.toLocaleDateString('zh-CN', { weekday: 'short' })}</span>
+  </time>;
 }
 
-/* 行内主操作：手机上是圆形图标按钮，宽屏补上文字。 */
+/* 手机也保留文字与 44px 点击区域，避免仅靠图标猜测操作。 */
 export function DoneButton({ label, title, icon = 'check', onClick }: { label: string; title: string; icon?: string; onClick: () => void }) {
-  return <Button variant="outline" aria-label={label + '：' + title} onClick={onClick}
-    className="size-10 shrink-0 rounded-full p-0 pointer-coarse:min-w-11 text-brand hover:border-brand hover:bg-brand hover:text-primary-foreground sm:w-auto sm:px-4">
-    <Icon name={icon} /><span className="hidden sm:inline">{label}</span>
+  return <Button variant="secondary" aria-label={label + '：' + title} onClick={onClick}
+    className="h-11 shrink-0 px-3 text-mint-ink sm:px-4 sm:text-base">
+    <Icon name={icon} className="hidden size-4 sm:block" /><span>{label}</span>
   </Button>;
 }
 

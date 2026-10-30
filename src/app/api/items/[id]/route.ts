@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const { id } = await params;
     const body = await readJson(req);
     const expected = typeof body.expectedUpdatedAt === 'string' ? body.expectedUpdatedAt : undefined;
-    const item = await updateItem(getDb(), numericId(id), body, user.id, expected);
+    const item = await updateItem(await getDb(), numericId(id), body, user.id, expected);
     return NextResponse.json(item);
   } catch (e) {
     return jsonError(e, req);
@@ -29,7 +29,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const user = await requireUser(req);
     const { id } = await params;
-    const item = await removeItem(getDb(), numericId(id), user.id);
+    const item = await removeItem(await getDb(), numericId(id), user.id);
     return NextResponse.json(item);
   } catch (e) {
     return jsonError(e, req);

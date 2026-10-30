@@ -56,6 +56,8 @@ describe('展示格式', () => {
   it('周期支出合计按币种分开且不重复代码', () => {
     const rows = [item({ amount: 100, cycle: 'yearly' }), item({ id: 2, amount: 3, currency: 'USD', cycle: 'monthly' })];
     expect(totals(rows, true)).toBe('¥100 · $36');
+    expect(totals(rows, true, true)).toBe('CNY 100 · USD 36');
+    expect(totals([item({ amount: -1500, currency: 'USD' }), item({ amount: 50, currency: 'SGD' })], false, true)).toBe('SGD 50 · USD -1,500');
   });
 });
 

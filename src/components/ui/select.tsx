@@ -9,7 +9,7 @@ export const Select = SelectPrimitive.Root;
 export const SelectValue = SelectPrimitive.Value;
 
 export function SelectTrigger({ className, children, ...props }: ComponentProps<typeof SelectPrimitive.Trigger>) {
-  return <SelectPrimitive.Trigger data-slot="select-trigger" className={cn('flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-xl border border-input bg-surface-soft hover:border-line-strong focus-visible:bg-background px-3 py-2 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/15 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground [&>span]:truncate pointer-coarse:min-h-11', className)} {...props}>
+  return <SelectPrimitive.Trigger data-slot="select-trigger" className={cn('flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-[10px] border border-input bg-surface hover:border-brand/50 px-3.5 py-2 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground [&>span]:truncate', className)} {...props}>
     {children}<SelectPrimitive.Icon asChild><Icon name="chevron" className="size-4 shrink-0 text-muted-foreground" /></SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>;
 }

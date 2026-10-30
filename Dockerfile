@@ -17,6 +17,9 @@ RUN npm run build
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
+    APP_ENV=production \
+    APP_PROJECT=life_hub \
+    DB_BACKEND=sqlite \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \

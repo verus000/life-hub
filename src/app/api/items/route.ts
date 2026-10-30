@@ -7,7 +7,7 @@ import { AppError } from '@/server/errors';
 export async function GET(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    return NextResponse.json(await listItems(getDb(), user.id));
+    return NextResponse.json(await listItems(await getDb(), user.id));
   } catch (e) {
     return jsonError(e, req);
   }
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const user = await requireUser(req);
     const body = await readJson(req);
     if (!body.title) throw new AppError(400, '缺少必填字段 title');
-    const item = await addItem(getDb(), body, user.id);
+    const item = await addItem(await getDb(), body, user.id);
     return NextResponse.json(item, { status: 201 });
   } catch (e) {
     return jsonError(e, req);
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const user = await requireUser(req);
-    await clearItems(getDb(), user.id);
+    await clearItems(await getDb(), user.id);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return jsonError(e, req);

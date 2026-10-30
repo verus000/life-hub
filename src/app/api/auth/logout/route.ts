@@ -5,7 +5,7 @@ import { clearSessionCookie, jsonError, sessionToken } from '@/server/api-helper
 
 export async function POST(req: NextRequest) {
   try {
-    await deleteSession(getDb(), sessionToken(req));
+    await deleteSession(await getDb(), sessionToken(req));
     const res = NextResponse.json({ ok: true });
     clearSessionCookie(res, req);
     return res;

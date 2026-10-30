@@ -6,7 +6,7 @@ import { useId, useState } from 'react';
 import { dateLabel, moneyLabel, reminderCycle, shiftNext, statusOf, todayStr } from '@/lib/model';
 import { CYCLES } from '@/lib/records';
 import type { CompletionValues, Item } from '@/lib/types';
-import { Btn, DateTile, Modal } from '@/components/ui';
+import { Btn, Modal, STATUS_TEXT } from '@/components/ui';
 import { Textarea } from '@/components/ui/textarea';
 import { DatePicker } from '@/components/ui/date-picker';
 import { AmountField } from '@/components/ui/amount-field';
@@ -56,6 +56,7 @@ export function CompleteModal({
   return (
     <Modal
       title={'记录' + (item.category === 'phone' ? '保活' : item.category === 'broadband' ? '续费' : item.category === 'parking' ? '缴费' : '复核')}
+      description={item.title}
       onClose={busy ? () => undefined : onClose}
       footer={
         <>
@@ -70,13 +71,12 @@ export function CompleteModal({
     >
       <form id={fieldId + '-form'} onSubmit={submit} noValidate>
         {/* 顶部摘要：正在处理哪一条、原定哪天到期 */}
-        <div className="mb-5 flex items-center gap-3 rounded-2xl bg-surface-soft p-3">
-          <DateTile date={item.nextDate} tone={statusOf(item).key} />
+        <div className="mb-6 rounded-xl bg-surface-soft px-4 py-4">
           <div className="min-w-0">
-            <div className="break-words text-[15px] font-semibold text-ink">{item.title}</div>
             <div className="mt-0.5 text-[13px] text-ink-3">
               {item.nextDate ? '原定 ' + dateLabel(item.nextDate) : '未设日期'}{CYCLES[reminderCycle(item)] ? ' · ' + CYCLES[reminderCycle(item)] : ''}
             </div>
+            <p className={'m-0 mt-2 text-sm ' + STATUS_TEXT[statusOf(item).key]}>{statusOf(item).label}</p>
           </div>
         </div>
         <div className="grid gap-4">
@@ -87,8 +87,8 @@ export function CompleteModal({
             </div>
             {!once ? (
               <div className="min-w-0">
-                <Label htmlFor={fieldId + '-next'} className="mb-2 block text-ink-2">下次日期</Label>
-                <DatePicker id={fieldId + '-next'} label="下次日期" value={values.nextDate} onChange={(value) => update('nextDate', value)} />
+              <Label htmlFor={fieldId + '-next'} className="mb-2 block text-ink-2">{item.category === 'phone' ? '下次保活日期' : '下次日期'}</Label>
+                <DatePicker id={fieldId + '-next'} label={item.category === 'phone' ? '下次保活日期' : '下次日期'} value={values.nextDate} onChange={(value) => update('nextDate', value)} />
                 <p className="m-0 mt-1.5 text-xs text-ink-3">留空则停止提醒</p>
               </div>
             ) : null}

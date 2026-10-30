@@ -13,7 +13,7 @@ import { toast as notify } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Icon, Logo } from '@/components/icons';
+import { Icon } from '@/components/icons';
 import { Overview } from '@/components/Overview';
 import { CategoryList } from '@/components/CategoryList';
 import { ItemForm } from '@/components/ItemForm';
@@ -21,10 +21,10 @@ import { CompleteModal, HistoryModal } from '@/components/ActionModals';
 
 const PAGE_META: Record<string, { label: string; desc: string }> = {
   overview: { label: '最近的安排', desc: '保活、续费、缴费，都在这里。' },
-  phone: { label: '我的手机号', desc: '查看号码与下次保活时间。' },
-  broadband: { label: '我的宽带', desc: '续费时间、合约期限与宽带信息，集中管理。' },
-  parking: { label: '停车缴费', desc: '记录车位信息，安排下一次缴费。' },
-  asset: { label: '我的资产', desc: '按账户查看资产，定期复核余额。' },
+  phone: { label: '手机号', desc: '保活提醒，按自己的节奏来。' },
+  broadband: { label: '宽带', desc: '续费与合约期限，清清楚楚。' },
+  parking: { label: '停车费', desc: '记好缴费日期，出行少一件牵挂。' },
+  asset: { label: '资产分布', desc: '定期看一眼，心里更有数。' },
 };
 
 type ImportPreview = {
@@ -291,34 +291,34 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
     counts[x.category] = (counts[x.category] || 0) + 1;
   });
 
-  const tabs = [{ key: 'overview', label: '最近', count: 0 }].concat(
-    ORDER.map((k) => ({ key: k, label: k === 'asset' ? '资产' : CATEGORIES[k].label, count: counts[k] || 0 })),
+  const tabs = [{ key: 'overview', label: '总览', count: 0 }].concat(
+    ORDER.map((k) => ({ key: k, label: CATEGORIES[k].label, count: counts[k] || 0 })),
   );
 
   return (
     <Tabs value={tab} onValueChange={switchTab} className="min-h-screen flex flex-col">
       {/* 顶栏：宽屏单行（标识 · 分类 · 操作），手机两行；分类下划线贴住顶栏底边 */}
       <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-[1088px] flex-wrap items-center gap-x-2 px-4 pt-3 sm:flex-nowrap sm:gap-x-3 sm:px-8 sm:pt-0">
-          <div className="mr-auto flex items-center gap-2.5 text-brand sm:mr-0 sm:py-4">
-            <Logo className="h-8 w-8" />
-            <span className="text-base font-bold tracking-wide text-ink">生活管理</span>
+        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-x-2 px-4 pt-3 sm:px-8 lg:flex-nowrap lg:gap-x-5 lg:px-12 lg:pt-0">
+          <div className="mr-auto flex items-baseline gap-3 py-1 text-ink lg:mr-0 lg:py-7">
+            <span className="text-xl font-bold tracking-tight sm:text-2xl lg:text-[28px]">生活管理</span>
+            <span className="hidden text-sm font-normal text-ink-3 sm:inline">Life Hub</span>
           </div>
-          <nav className="order-last mt-1 w-full sm:order-none sm:mt-0 sm:ml-8 sm:mr-auto sm:w-auto sm:self-stretch" aria-label="生活分类">
-            <TabsList className="grid h-full w-full grid-cols-5 items-stretch gap-0 rounded-none bg-transparent p-0 sm:flex sm:gap-7">
-              {tabs.map((entry) => <TabsTrigger key={entry.key} value={entry.key} className="h-full min-w-0 rounded-none border-b-2 border-transparent px-1 pb-2.5 pt-2 text-sm text-ink-3 hover:text-ink focus-visible:bg-brand-soft focus-visible:ring-0 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ink data-[state=active]:shadow-none sm:px-0 sm:py-0">
+          <nav className="order-last mt-2 w-full lg:order-none lg:mx-auto lg:mt-0 lg:w-auto lg:self-stretch" aria-label="生活分类">
+            <TabsList className="grid h-full w-full grid-cols-5 items-stretch gap-0 rounded-none bg-transparent p-0 lg:flex lg:gap-6 xl:gap-9">
+              {tabs.map((entry) => <TabsTrigger key={entry.key} value={entry.key} className="h-full min-w-0 gap-2 rounded-none border-b-[3px] border-transparent px-1 py-3 text-sm text-ink-2 hover:text-brand focus-visible:bg-brand-soft focus-visible:ring-0 data-[state=active]:border-brand data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-brand data-[state=active]:shadow-none lg:px-0 lg:py-0 lg:text-base">
+                <Icon name={entry.key} className="hidden size-[18px] lg:block" />
                 {entry.label}
-                {entry.count > 0 && <span className="hidden rounded-full bg-surface-soft px-1.5 text-xs font-medium text-ink-3 sm:inline">{entry.count}</span>}
               </TabsTrigger>)}
             </TabsList>
           </nav>
-          <Btn variant="primary" onClick={() => openAdd()}>
+          <Btn variant="primary" className="sm:h-12 sm:px-5 sm:text-base" onClick={() => openAdd()}>
             <Icon name="plus" className="h-4 w-4" />
-            <span>添加<span className="hidden sm:inline">安排</span></span>
+            <span>添加安排</span>
           </Btn>
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" aria-label="更多操作" className="px-3"><Icon name="more" /><span className="hidden sm:inline">更多</span></Button>
+              <Button variant="secondary" size="icon" aria-label="更多操作"><Icon name="more" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="break-all">{email}</DropdownMenuLabel>
@@ -342,16 +342,15 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
         </div>
       </header>
 
-      <main className="flex-1 w-full max-w-[1088px] mx-auto px-4 py-6 sm:px-8 sm:py-8">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-8 pt-8 sm:px-8 sm:pt-16 lg:px-12 lg:pt-24">
         {tabs.map(({ key }) => <TabsContent key={key} value={key} className="space-y-5">
           {key === tab && <>
-            {tab !== 'overview' ? <div className="flex items-center gap-3.5">
-              <span className="category-icon" data-category={tab}><Icon name={tab} className="size-5" /></span>
+            {tab !== 'overview' ? <div className="mb-9 flex items-center justify-between gap-4 sm:mb-10">
               <div className="min-w-0">
-                <h1 className="m-0 flex items-baseline gap-2 text-xl font-bold text-ink sm:text-2xl">
+                <h1 className="m-0 flex flex-wrap items-baseline gap-3 text-[28px] font-semibold tracking-tight text-ink sm:text-[40px] sm:leading-tight">
                   {meta.label}<span className="text-sm font-medium text-ink-3">{counts[tab] || 0} 条</span>
                 </h1>
-                <p className="m-0 mt-0.5 text-[13px] text-ink-3 sm:text-sm">{meta.desc}</p>
+                <p className="m-0 mt-3 text-sm text-ink-2 sm:text-base">{meta.desc}</p>
               </div>
             </div> : null}
 
@@ -400,12 +399,11 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
         </TabsContent>)}
       </main>
 
-      <footer className="mx-auto flex w-full max-w-[1088px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 pb-6 pt-2 text-xs text-ink-3 sm:px-8">
+      <footer className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 pb-6 text-xs text-ink-3 sm:px-8 lg:px-12">
         <div>
-          <p className="m-0 font-medium">小事有着落，生活更轻松。</p>
-          <p className="m-0 mt-1">{offline ? '暂时无法连接，展示最近加载的记录' : '记录已同步'}</p>
+          <p className="m-0 flex items-center gap-2"><Icon name={offline ? 'bell' : 'check'} className="size-3.5" />{offline ? '暂时无法连接，展示最近加载的记录' : '记录已同步'}<span className="hidden sm:inline"> · 小事有着落，生活更轻松。</span></p>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => setCalendarOpen(true)}>
+        <Button variant="ghost" size="sm" className="hidden sm:inline-flex" onClick={() => setCalendarOpen(true)}>
           <Icon name="calendar" className="h-4 w-4" />导出日历提醒
         </Button>
       </footer>

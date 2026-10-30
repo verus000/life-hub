@@ -1,114 +1,89 @@
-/* 数据库层回归：新库建表、旧库自动迁移、数据认领 */
+import { describe, expect, it, vi } from 'vitest';
+import pg from 'pg';
+import { randomUUID } from 'node:crypto';
+import { databaseTarget } from '@/server/db/target';
+import { createPostgresDb } from '@/server/db/postgres';
+import { getDb } from '@/server/db';
+import { freshDb } from './helpers';
 
-import { describe, expect, it } from 'vitest';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { createHash } from 'node:crypto';
-import { createDbAt } from '@/server/db';
-import { claimLegacyItems } from '@/server/items/service';
-import { getSessionUser, resend, verify } from '@/server/auth/service';
-import { clearMail, createLegacyDb, setupEnv, verifyTokenFromOutbox } from './helpers';
+describe('数据库目标检查', () => {
+  const env = {
+    APP_ENV: 'testing', APP_PROJECT: 'life_hub',
+    TEST_DATABASE_URL: 'postgresql://life_hub_test_app:example@127.0.0.1:55432/life_hub_test',
+  };
+  it('接受登记的测试目标', () => {
+    expect(databaseTarget(env)).toMatchObject({ database: 'life_hub_test', user: 'life_hub_test_app' });
+  });
+  it('本地入口拒绝 SQLite，缺失测试连接时也不回退开发库', async () => {
+    try {
+      vi.stubEnv('DB_BACKEND', 'sqlite');
+      await expect(getDb()).rejects.toThrow('本地开发和测试必须使用 Docker PostgreSQL');
+      vi.stubEnv('DB_BACKEND', 'postgresql');
+      vi.stubEnv('TEST_DATABASE_URL', '');
+      vi.stubEnv('DATABASE_URL', env.TEST_DATABASE_URL);
+      await expect(getDb()).rejects.toThrow('缺少 TEST_DATABASE_URL');
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('APP_ENV', '');
+      vi.stubEnv('DB_BACKEND', undefined);
+      await expect(getDb()).rejects.toThrow('APP_ENV=development 或 testing');
+    } finally { vi.unstubAllEnvs(); }
+  });
+  it.each([
+    { APP_ENV: 'production' }, { APP_ENV: '' }, { APP_PROJECT: 'other' },
+    { TEST_DATABASE_URL: '', DATABASE_URL: env.TEST_DATABASE_URL },
+    { TEST_DATABASE_URL: env.TEST_DATABASE_URL.replace('55432', '5432') },
+    { TEST_DATABASE_URL: env.TEST_DATABASE_URL.replace('127.0.0.1', 'localhost') },
+    { TEST_DATABASE_URL: env.TEST_DATABASE_URL.replace('/life_hub_test', '/other_test') },
+    { TEST_DATABASE_URL: env.TEST_DATABASE_URL.replace('life_hub_test_app:', 'life_hub_test_migrator:') },
+    { TEST_DATABASE_URL: env.TEST_DATABASE_URL + '?options=-c%20role=admin' },
+  ])('拒绝不匹配配置 %j', (patch) => {
+    expect(() => databaseTarget({ ...env, ...patch })).toThrow();
+  });
+});
 
-function legacyVerificationDb(expiresAt = new Date(Date.now() + 3600000).toISOString()) {
-  setupEnv();
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lifehub-verification-')), 'legacy.db');
-  const db = createDbAt(file);
-  const now = new Date().toISOString();
-  const token = 'c'.repeat(64);
-  db.$client.prepare('INSERT INTO users (email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?)')
-    .run('legacy@example.test', 'unused', now, now);
-  db.$client.exec(`DROP TABLE verification_tokens;
-    CREATE TABLE verifications (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL)`);
-  db.$client.prepare('INSERT INTO verifications VALUES (?, 1, ?, ?)')
-    .run(createHash('sha256').update(token).digest('hex'), expiresAt, now);
-  db.$client.close();
-  return { file, token };
-}
-
-describe('数据库初始化', () => {
-  it('新库自动创建全部表与索引', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lifehub-db-'));
-    const file = path.join(dir, 'new.db');
-    const db = createDbAt(file);
-    const tables = db.$client
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-      .all()
-      .map((r) => (r as { name: string }).name);
-    expect(tables).toContain('users');
-    expect(tables).toContain('sessions');
-    expect(tables).toContain('verification_tokens');
-    expect(tables).toContain('items');
-    db.$client.close();
+describe('Docker PostgreSQL', () => {
+  it('测试连接使用最小权限账号且结构已迁移', async () => {
+    const target = databaseTarget();
+    const client = new pg.Client({ connectionString: target.url });
+    try {
+      await client.connect();
+      const [row] = (await client.query(`SELECT current_database() AS database, current_user AS username,
+        rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls,
+        has_schema_privilege(current_user, 'app', 'CREATE') AS can_create,
+        has_schema_privilege(current_user, 'migration_meta', 'USAGE') AS can_access_migrations,
+        has_database_privilege(current_user, current_database(), 'TEMP') AS can_temp,
+        has_table_privilege(current_user, 'app.items', 'TRUNCATE') AS can_truncate,
+        has_table_privilege(current_user, 'app.items', 'SELECT,INSERT,UPDATE,DELETE') AS can_crud,
+        (SELECT count(*)::integer FROM pg_auth_members WHERE member = pg_roles.oid) AS memberships
+        FROM pg_roles WHERE rolname = current_user`)).rows;
+      expect(row).toEqual({ database: 'life_hub_test', username: 'life_hub_test_app',
+        rolsuper: false, rolcreatedb: false, rolcreaterole: false, rolreplication: false, rolbypassrls: false,
+        can_create: false, can_access_migrations: false, can_temp: false, can_truncate: false,
+        can_crud: true, memberships: 0 });
+      const tables = (await client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'app'")).rows.map((r) => r.tablename);
+      expect(tables.sort()).toEqual(['items', 'sessions', 'users', 'verification_tokens']);
+    } finally { await client.end(); }
   });
 
-  it('旧版单用户库自动补 user_id 列并保留数据', async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lifehub-legacy-'));
-    const file = path.join(dir, 'legacy.db');
-    createLegacyDb(file, [
-      { category: 'phone', title: '旧手机号', amount: 19 },
-      { category: 'asset', title: '旧账户', amount: 1000 },
-    ]);
-    const db = createDbAt(file);
-    const cols = db.$client
-      .prepare('PRAGMA table_info("items")')
-      .all()
-      .map((r) => (r as { name: string }).name);
-    expect(cols).toContain('user_id');
-    const count = db.$client.prepare('SELECT COUNT(*) c FROM items').get() as { c: number };
-    expect(count.c).toBe(2);
-
-    /* 认领后归属首个用户 */
-    const claimed = await claimLegacyItems(db, 7);
-    expect(claimed).toBe(2);
-    const owners = db.$client.prepare('SELECT DISTINCT user_id FROM items').all();
-    expect(owners).toEqual([{ user_id: 7 }]);
-    db.$client.close();
+  it('每个测试事务回滚，后续连接看不到数据', async () => {
+    const db = await freshDb();
+    const title = `rollback-${randomUUID()}`;
+    await db.insert('items', { title, createdAt: '2026-10-30', updatedAt: '2026-10-30' });
+    expect(await db.find('items', { title })).toHaveLength(1);
+    await db.close();
+    const next = await freshDb();
+    expect(await next.find('items', { title })).toEqual([]);
   });
 
-  it('重复初始化保持幂等', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lifehub-idem-'));
-    const file = path.join(dir, 'idem.db');
-    const a = createDbAt(file);
-    a.$client.close();
-    const b = createDbAt(file);
-    const count = b.$client.prepare('SELECT COUNT(*) c FROM items').get() as { c: number };
-    expect(count.c).toBe(0);
-    b.$client.close();
-  });
-
-  it('迁移旧认证令牌，激活后重启不会恢复一次性令牌', async () => {
-    const { file, token } = legacyVerificationDb();
-    const db = createDbAt(file);
-    expect(db.$client.prepare('SELECT count(*) AS n FROM verifications').get()).toMatchObject({ n: 0 });
-    expect(db.$client.prepare('SELECT count(*) AS n FROM verification_tokens').get()).toMatchObject({ n: 1 });
-    const activated = await verify(db, token);
-    expect((await getSessionUser(db, activated.session.token))?.email).toBe('legacy@example.test');
-    db.$client.close();
-    const reopened = createDbAt(file);
-    await expect(verify(reopened, token)).rejects.toMatchObject({ status: 400 });
-    expect((await getSessionUser(reopened, activated.session.token))?.email).toBe('legacy@example.test');
-    reopened.$client.close();
-  });
-
-  it('迁移后重发邮件使旧令牌失效，重启后仍仅接受新令牌', async () => {
-    const { file, token } = legacyVerificationDb();
-    const db = createDbAt(file);
-    clearMail();
-    await resend(db, 'legacy@example.test', 'legacy-resend');
-    const replacement = verifyTokenFromOutbox();
-    db.$client.close();
-    const reopened = createDbAt(file);
-    await expect(verify(reopened, token)).rejects.toMatchObject({ status: 400 });
-    expect((await verify(reopened, replacement)).email).toBe('legacy@example.test');
-    reopened.$client.close();
-  });
-
-  it('迁移保留旧令牌的有效期，过期令牌不可激活', async () => {
-    const { file, token } = legacyVerificationDb('2000-01-01T00:00:00.000Z');
-    const reopened = createDbAt(file);
-    await expect(verify(reopened, token)).rejects.toMatchObject({ status: 400 });
-    expect(reopened.$client.prepare('SELECT email_verified_at FROM users').get()).toMatchObject({ email_verified_at: null });
-    reopened.$client.close();
+  it('运行时事务异常真实回滚全部写入', async () => {
+    const db = await createPostgresDb(databaseTarget());
+    const title = `transaction-${randomUUID()}`;
+    try {
+      await expect(db.transaction(async (tx) => {
+        await tx.insert('items', { title, createdAt: '2026-10-30', updatedAt: '2026-10-30' });
+        throw new Error('模拟后续写入失败');
+      })).rejects.toThrow('模拟后续写入失败');
+      expect(await db.find('items', { title })).toEqual([]);
+    } finally { await db.close(); }
   });
 });

@@ -3,7 +3,7 @@
 /* 登录 / 注册 / 重发验证邮件：三视图切换卡片，沿用原有交互 */
 
 import { useState } from 'react';
-import { Logo, OrbitArtwork } from '@/components/icons';
+import { AuthShell } from './AuthShell';
 import { Btn } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -82,94 +82,35 @@ export function AuthCard({ initialView = 'login' }: { initialView?: View }) {
     }
   }
 
-  const title = view === 'login' ? '登录' : view === 'register' ? '注册新账号' : '重发验证邮件';
+  const title = view === 'login' ? '欢迎回来' : view === 'register' ? '注册新账号' : '重发验证邮件';
+  const subtitle = view === 'login' ? '登录生活管理，把小事安排好。' : view === 'register' ? '记下生活的小事，给自己多一点从容。' : '填写邮箱，我们会再发一封验证邮件。';
 
-  return (
-    <main className="grid min-h-dvh place-items-center bg-bg px-4 py-10 sm:px-6">
-      <div className="w-full max-w-[420px] overflow-hidden rounded-[28px] bg-surface border border-line shadow-card">
-        <div className="relative isolate overflow-hidden bg-hero px-7 pb-6 pt-7">
-          <div className="relative z-10 flex items-center gap-2.5 text-brand">
-            <Logo className="h-9 w-9" />
-            <span className="text-base font-extrabold tracking-wide text-ink">生活管理</span>
-          </div>
-          <h1 className="relative z-10 m-0 mt-6 text-2xl font-extrabold text-hero-ink">{title}</h1>
-          <p className="relative z-10 m-0 mt-2 max-w-[220px] text-[13px] text-hero-muted">
-            {view === 'login' ? '把小日子，安排得明明白白。' : view === 'register' ? '记下生活的小事，给自己多一点从容。' : '填写邮箱，我们会再发一封验证邮件。'}
-          </p>
-          <OrbitArtwork className="pointer-events-none absolute -bottom-4 -right-7 h-36 w-40 opacity-85" />
-        </div>
-
-        <div className="px-7 pb-6 pt-6">
-          <form onSubmit={submit} noValidate className="grid gap-4">
-            <Label className="grid gap-2.5">
-              邮箱
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                placeholder="you@example.com"
-                required
-              />
-            </Label>
-            {view !== 'resend' && (
-              <Label className="grid gap-2.5">
-                密码
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete={view === 'login' ? 'current-password' : 'new-password'}
-                  placeholder="至少 8 位"
-                  minLength={8}
-                  required
-                />
-              </Label>
-            )}
-            {view === 'register' && (
-              <Label className="grid gap-2.5">
-                确认密码
-                <Input
-                  type="password"
-                  value={password2}
-                  onChange={(e) => setPassword2(e.target.value)}
-                  autoComplete="new-password"
-                  placeholder="再次输入密码"
-                  minLength={8}
-                  required
-                />
-              </Label>
-            )}
-
-            <Btn type="submit" variant="primary" disabled={busy} className="mt-1 w-full">
-              {busy ? '提交中…' : view === 'login' ? '登录' : view === 'register' ? '注册' : '发送验证邮件'}
-            </Btn>
-          </form>
-
-          <div className="flex justify-center flex-wrap items-center gap-2 mt-4">
-            {view !== 'login' && (
-              <Button variant="link" size="sm" className="px-1" onClick={() => setView('login')}>
-                已有账号，去登录
-              </Button>
-            )}
-            {view === 'login' && (
-              <>
-                <Button variant="link" size="sm" className="px-1" onClick={() => setView('register')}>
-                  注册新账号
-                </Button>
-                <span className="text-[12px] text-ink-3">·</span>
-                <Button variant="link" size="sm" className="px-1" onClick={() => setView('resend')}>
-                  重发验证邮件
-                </Button>
-              </>
-            )}
-          </div>
-
-          <p className={`m-0 mt-3 min-h-[18px] text-[12px] leading-relaxed ${isError ? 'text-danger' : 'text-ink-2'}`} role="status">
-            {msg}
-          </p>
-        </div>
-      </div>
-    </main>
-  );
+  return <AuthShell title={title} subtitle={subtitle}>
+    <form onSubmit={submit} noValidate className="grid gap-5">
+      <Label className="grid gap-2 text-sm text-ink">
+        邮箱
+        <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" placeholder="you@example.com" required />
+      </Label>
+      {view !== 'resend' && <Label className="grid gap-2 text-sm text-ink">
+        密码
+        <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={view === 'login' ? 'current-password' : 'new-password'} placeholder={view === 'login' ? '输入密码' : '至少 8 位'} minLength={8} required />
+      </Label>}
+      {view === 'register' && <Label className="grid gap-2 text-sm text-ink">
+        确认密码
+        <Input type="password" value={password2} onChange={(event) => setPassword2(event.target.value)} autoComplete="new-password" placeholder="再次输入密码" minLength={8} required />
+      </Label>}
+      <Btn type="submit" variant="primary" disabled={busy} className="mt-2 w-full">
+        {busy ? '提交中…' : view === 'login' ? '登录' : view === 'register' ? '注册' : '发送验证邮件'}
+      </Btn>
+    </form>
+    <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+      {view !== 'login' ? <Button variant="link" size="sm" onClick={() => setView('login')}>已有账号，去登录</Button> : <>
+        <Button variant="link" size="sm" onClick={() => setView('register')}>注册新账号</Button>
+        <span className="text-xs text-ink-3" aria-hidden="true">·</span>
+        <Button variant="link" size="sm" onClick={() => setView('resend')}>重发验证邮件</Button>
+      </>}
+    </div>
+    <p className={'m-0 mt-3 min-h-5 text-center text-sm leading-relaxed ' + (isError ? 'text-danger' : 'text-ink-2')} role="status">{msg}</p>
+    {view === 'login' && !msg && <p className="m-0 mt-2 text-center text-xs text-ink-3">注册后需验证邮箱。</p>}
+  </AuthShell>;
 }
