@@ -1,4 +1,4 @@
-/* 认证服务：邮箱注册（邮件验证）、登录会话、限流。
+/* 认证服务：邮箱注册（可选邮件验证）、登录会话、限流。
    逻辑与原 src/auth.js 逐行对应；HTTP 细节（Cookie）由 Route Handler 负责。 */
 
 import crypto from 'node:crypto';
@@ -99,7 +99,8 @@ export async function getSessionUser(db: Db, token: string | undefined): Promise
   }
   const userRows = await db.find('users', { id: session.userId }, { limit: 1 });
   const user = userRows[0];
-  return user && user.emailVerifiedAt ? { id: user.id, email: user.email, createdAt: user.createdAt } : null;
+  return user && (!cfg.EMAIL_VERIFICATION_REQUIRED || user.emailVerifiedAt)
+    ? { id: user.id, email: user.email, createdAt: user.createdAt } : null;
 }
 
 export async function deleteSession(db: Db, token: string | undefined): Promise<void> {
@@ -142,10 +143,11 @@ export async function register(
   if (!EMAIL_RE.test(mail)) throw badRequest('邮箱格式不正确');
   if (pass.length < 8) throw badRequest('密码至少需要 8 位');
 
-  const existing = (await db.find('users', { email: mail }, { limit: 1 }))[0];
-  if (existing && existing.emailVerifiedAt) throw badRequest('该邮箱已注册，请直接登录');
-
   const cfg = loadConfig();
+  const existing = (await db.find('users', { email: mail }, { limit: 1 }))[0];
+  if (existing && (!cfg.EMAIL_VERIFICATION_REQUIRED || existing.emailVerifiedAt)) {
+    throw badRequest('该邮箱已注册，请直接登录');
+  }
   let userId: number;
   if (existing) {
     userId = existing.id;
@@ -155,8 +157,11 @@ export async function register(
     });
     userId = inserted[0].id;
   }
-  await issueVerification(db, userId, mail);
-  return { message: '注册成功，请查收验证邮件完成激活' };
+  if (cfg.EMAIL_VERIFICATION_REQUIRED) {
+    await issueVerification(db, userId, mail);
+    return { message: '注册成功，请查收验证邮件完成激活' };
+  }
+  return { message: '注册成功，请直接登录' };
 }
 
 export async function verify(
@@ -202,14 +207,21 @@ export async function login(
   }
   const ok = await bcrypt.compare(pass, user.passwordHash || '');
   if (!ok) throw unauthorized('邮箱或密码错误');
-  if (!user.emailVerifiedAt) {
+  const cfg = loadConfig();
+  if (cfg.EMAIL_VERIFICATION_REQUIRED && !user.emailVerifiedAt) {
     throw forbidden('邮箱尚未验证，请先查收验证邮件', 'EMAIL_UNVERIFIED');
+  }
+  if (!cfg.EMAIL_VERIFICATION_REQUIRED) {
+    /* 无邮件验证时，由最早注册的账号在登录后认领；不伪造邮箱已验证状态。 */
+    const first = (await db.find('users', {}, { orderBy: 'id', limit: 1 }))[0];
+    if (first?.id === user.id) await claimLegacyItems(db, user.id);
   }
   const session = await createSession(db, user.id);
   return { user: { id: user.id, email: user.email, createdAt: user.createdAt }, session };
 }
 
 export async function resend(db: Db, email: unknown, ip: string): Promise<{ message: string }> {
+  if (!loadConfig().EMAIL_VERIFICATION_REQUIRED) return { message: '当前无需验证邮箱，请直接登录' };
   const mail = normalizeEmail(email);
   if (!allow('resend', ip + '|' + mail)) throw tooManyRequests('发送过于频繁，请稍后再试');
   const user = mail ? (await db.find('users', { email: mail }, { limit: 1 }))[0] : undefined;

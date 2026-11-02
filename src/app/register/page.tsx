@@ -5,11 +5,12 @@ import { redirect } from 'next/navigation';
 import { getDb } from '@/server/db';
 import { getSessionUser } from '@/server/auth/service';
 import { SESSION_COOKIE } from '@/server/auth/constants';
+import { loadConfig } from '@/server/config';
 
 export const metadata: Metadata = { title: '注册 · 生活管理' };
 
 export default async function RegisterPage() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (token && await getSessionUser(await getDb(), token)) redirect('/');
-  return <AuthCard initialView="register" />;
+  return <AuthCard initialView="register" verificationRequired={loadConfig().EMAIL_VERIFICATION_REQUIRED} />;
 }

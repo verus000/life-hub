@@ -11,7 +11,7 @@
 ## 项目概况
 
 - 个人生活管理应用，包含以海外 eSIM 为主的手机卡管理、宽带、停车费和资产分布，支持到期提醒、周期顺延、搜索筛选及 CSV 导入导出。手机卡用别名作为名称，号码选填，支持长期保号与套餐到期；既有 phone 标识和旧号码记录兼容。
-- 多用户：邮箱注册（邮件验证激活）、登录会话（HttpOnly Cookie），数据按 `user_id` 隔离；首个完成激活的用户自动认领历史无归属数据。
+- 多用户：邮箱注册、登录会话（HttpOnly Cookie），数据按 `user_id` 隔离。邮箱验证默认关闭（`EMAIL_VERIFICATION_REQUIRED=false`），已有未验证账号可用原密码登录，不伪造验证时间；开启后恢复邮件验证。历史无归属数据在关闭验证时由最早注册账号登录认领，开启时由首个完成验证的用户认领。
 - 产品面向个人日常使用，界面以简单、直接、少干扰为优先：顶部分类导航，首页先展示最近安排，统计、筛选及补充字段按需展开。后续改版沿用这一定位。
 - 视觉采用用户选定的薄荷青方案：冷白底、深墨绿正文、深青主按钮与浅薄荷辅助区域（小字对比度不低于 4.5:1），顶部下划线分类导航，细数字日期与星期、连续行列表和轻量分隔线；本地 `public/images/mint-orbit.png` 提供通透环形背景，图标沿用轻量内联 SVG，不引入图标库、远程图片或字体。首页优先处理与近期安排在桌面双栏、手机单列；筛选、补充字段、支出与人民币分布按需展开，移动端操作保留文字和 44px 点击区域。
 - 技术栈：Next.js 16（App Router、Route Handlers、standalone 输出）+ TypeScript 严格模式 + Drizzle ORM（PostgreSQL / `pg`）+ Tailwind CSS v4 + React 19。
@@ -51,7 +51,7 @@
 | `src/components/AssetDistribution.tsx` | 资产分类中按需展开的人民币余额与分布图，外币分开列示 |
 | `src/components/ActionModals.tsx` / `auth/AuthCard.tsx` / `ui.tsx` / `icons.tsx` | 处理与历史撤销弹窗、登录注册三视图、通用 UI 件、内联 SVG |
 | `src/components/ui/` / `src/lib/utils.ts` / `components.json` | shadcn/ui 源码组件、Radix 交互、中文日期与国家选择器、Sonner 通知；`cn` 合并 Tailwind 样式 |
-| `test/` | Vitest 默认 PostgreSQL／目标与权限检查、事务回滚、auth、items、API、页面及纯函数，共 105 项；`helpers.ts` 仅用测试运行账号并在用例后回滚 |
+| `test/` | Vitest 默认 PostgreSQL／目标与权限检查、事务回滚、auth、验证开关、部署前缀、items、API、页面及纯函数；`helpers.ts` 仅用测试运行账号并在用例后回滚 |
 | `vitest.config.mts` | node 环境、`@` 别名（**必须是 .mts**，.ts 会被按 CJS 加载） |
 | `drizzle.config.ts` / `next.config.ts` / `tsconfig.json` / `postcss.config.mjs` | 工具链配置；`next.config.ts` 设 `output: 'standalone'`、`serverExternalPackages: ['nodemailer']` |
 | `Dockerfile` / `docker-compose.yml` / `.env.example` | 非 root standalone 镜像、回环端口映射、外部数据库网络；构建上下文排除 Secret，无数据库文件卷 |
@@ -65,12 +65,13 @@ node --version          # 需要 >= 22
 npm install
 npm run dev             # 开发（http://localhost:3000）
 npm run build && npm start   # 生产（standalone）
-npm test                # PostgreSQL + Vitest 105 项
+npm test                # PostgreSQL + Vitest
 npm run typecheck       # tsc --noEmit
 ```
 
 - 开发运行凭据放忽略的 `.env.development.local`（APP_ENV=development、APP_PROJECT=life_hub、DATABASE_URL）；测试仅加载 `.env.test.local` / `.env.test`（APP_ENV=testing、TEST_DATABASE_URL），不得回退 DATABASE_URL。迁移凭据只放 `configs/.env.<development|testing>.migration.local`，用 `npm run db:migrate -- development|testing` 显式执行，不下发给应用／测试进程。
-- 环境变量由 Next.js 内置 `.env` 机制加载（无 dotenv）；以 `.env.example` 为参考：`APP_URL`、`MAIL_MODE`（`console`/`smtp`）、`SMTP_HOST/PORT/USER/PASS/FROM`、`SESSION_TTL_DAYS`、`BCRYPT_ROUNDS`。开发期未配置 SMTP 时默认 console 模式（验证链接打印到终端）。
+- 环境变量由 Next.js 内置 `.env` 机制加载（无 dotenv）；以 `.env.example` 为参考：`APP_URL`、`EMAIL_VERIFICATION_REQUIRED`（默认 false）、`MAIL_MODE`（`console`/`smtp`）、`SMTP_HOST/PORT/USER/PASS/FROM`、`SESSION_TTL_DAYS`、`BCRYPT_ROUNDS`。仅开启邮箱验证时发送邮件，未配置 SMTP 时默认 console 模式（验证链接打印到终端）。
+- `NEXT_PUBLIC_BASE_PATH` 默认空，构建前可设为 `/life-hub`；变更后重新构建，`APP_URL` 包含相同前缀。手写 fetch／window.location／public URL 复用 `src/lib/base-path.ts`；Next Link、server redirect 和 middleware 的 NextURL 自动处理前缀，不重复拼接。会话 Cookie 限定在部署路径。Docker 构建参数及 Nginx 保留前缀示例见 README 与 `deploy/nginx.conf.example`。
 - Compose 只管理应用容器，通过显式 DATABASE_NETWORK 使用外部数据库；开发／测试分别接入对应公共网络，生产接入独立网络。宿主机使用回环端点，容器使用对应 PostgreSQL 容器 DNS；应用不拥有数据库卷或服务生命周期。
 - `TRUST_PROXY=false` 为默认值：忽略客户端代理头，直连认证请求共用限流桶。仅在禁止直连且可信反代覆盖/追加真实 IP 时设为 `true`，取 `X-Forwarded-For` 最右侧有效 IP，否则取代理覆盖的 `X-Real-IP`。
 - PowerShell 使用 `$env:MAIL_MODE = 'console'` 形式设置环境变量；临时调试优先用环境变量，不要改用户的 `.env`。
@@ -99,7 +100,7 @@ npm run typecheck       # tsc --noEmit
 - 人民币资产总额与分布图只统计 CNY 账户，其他币种单独展示；没有自动汇率换算。
 - 周期支出按币种分别汇总，排除暂停、归档、已完成及一次性条目。`status` 可选 `active`、`paused`、`archived`、`completed`；默认列表与待办只展示在用条目。
 - `detail.recordKey` 是新记录的稳定标识；导入按标识去重，旧文件没有标识时按完整内容去重。`detail.reminderCycle` 将保活 / 复核周期与缴费 `cycle` 分开；`detail.reminderAnchor` 保留原始日期；`detail.contractDate` 是独立的宽带合约提醒，旧记录的 `nextDate` 保留原值，编辑时提示核对，不自动推断。`detail.history` 保存处理和状态记录；撤销仅允许最新一次处理且相关字段未发生后续变更。
-- `items.userId` 为空的历史数据由首个完成邮箱验证的用户认领（`claimLegacyItems`）；之后的注册用户从空数据开始。
+- `items.userId` 为空的历史数据由首个完成邮箱验证的用户认领（`claimLegacyItems`）；关闭验证时改由最早注册账号在登录后认领，其他用户从空数据开始。
 - 邮件激活令牌保存在 verification_tokens，成功后消费，重发会替换旧令牌。旧 /?verify=... 地址仍由 middleware 转到验证页；登录和注册页的跳转须校验真实会话，不能仅凭 Cookie 存在性。
 - `update` 是部分更新：未传入的字段保留，包括 `detail`；显式传 `detail` 时整体替换。更新和删除不存在的记录返回 404，列表按 ID 升序返回。
 - 结构变更同步更新 schema.ts、migrations/ 和 test/db.test.ts；不依赖运行时建表迁移已有结构。
@@ -131,7 +132,7 @@ npm run typecheck       # tsc --noEmit
 
 ```powershell
 npm run typecheck   # tsc --noEmit
-npm test            # PostgreSQL + Vitest（105 项）
+npm test            # PostgreSQL + Vitest
 npm run build       # 生产构建，15 个路由
 ```
 

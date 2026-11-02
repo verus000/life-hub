@@ -1,6 +1,6 @@
 /* 认证服务回归：注册、验证、登录、限流、数据认领（对应原自测的 auth 部分） */
 
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   deleteSession,
   getSessionUser,
@@ -11,13 +11,64 @@ import {
 } from '@/server/auth/service';
 import { getDb } from '@/server/db';
 import { listItems } from '@/server/items/service';
-import { clearMail, freshDb, setupEnv, verifyTokenFromOutbox } from './helpers';
+import { clearMail, freshDb, outbox, setupEnv, verifyTokenFromOutbox } from './helpers';
+import { loadConfig, resetConfigCache } from '@/server/config';
 
 let seq = 0;
 const nextEmail = () => 'user' + ++seq + '@test.dev';
 
-beforeAll(() => {
+beforeEach(() => {
   setupEnv();
+  clearMail();
+});
+
+describe('关闭邮箱验证', () => {
+  it('默认不验证、不发信、不伪造验证状态，注册后可登录并使用会话', async () => {
+    delete process.env.EMAIL_VERIFICATION_REQUIRED;
+    process.env.MAIL_MODE = 'smtp';
+    resetConfigCache();
+    expect(loadConfig().EMAIL_VERIFICATION_REQUIRED).toBe(false);
+    const db = await freshDb();
+    const result = await register(db, 'direct@test.dev', 'pass-word-123', 'direct-register');
+    expect(result.message).toContain('直接登录');
+    expect(outbox()).toHaveLength(0);
+    expect(await db.find('verificationTokens')).toHaveLength(0);
+    expect((await db.find('users', { email: 'direct@test.dev' }))[0].emailVerifiedAt).toBeNull();
+    const loggedIn = await login(db, 'direct@test.dev', 'pass-word-123', 'direct-login');
+    expect(await getSessionUser(db, loggedIn.session.token)).toMatchObject({ email: 'direct@test.dev' });
+    await expect(register(db, 'direct@test.dev', 'other-pass-123', 'direct-duplicate')).rejects.toMatchObject({ status: 400 });
+    await expect(login(db, 'direct@test.dev', 'other-pass-123', 'direct-wrong')).rejects.toMatchObject({ status: 401 });
+    expect((await resend(db, 'direct@test.dev', 'direct-resend')).message).toContain('无需验证');
+    expect(outbox()).toHaveLength(0);
+  });
+
+  it('已有未验证账号可用原密码登录，再次开启验证后恢复闸门', async () => {
+    const db = await freshDb();
+    await register(db, 'pending@test.dev', 'original-pass-123', 'pending-register');
+    process.env.EMAIL_VERIFICATION_REQUIRED = 'false';
+    resetConfigCache();
+    await expect(register(db, 'pending@test.dev', 'replacement-pass-123', 'pending-duplicate')).rejects.toMatchObject({ status: 400 });
+    const loggedIn = await login(db, 'pending@test.dev', 'original-pass-123', 'pending-login');
+    expect(await getSessionUser(db, loggedIn.session.token)).toMatchObject({ email: 'pending@test.dev' });
+    process.env.EMAIL_VERIFICATION_REQUIRED = 'true';
+    resetConfigCache();
+    expect(await getSessionUser(db, loggedIn.session.token)).toBeNull();
+    await expect(login(db, 'pending@test.dev', 'original-pass-123', 'pending-required')).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('最早注册账号在登录时认领历史数据，后续账号保持隔离', async () => {
+    process.env.EMAIL_VERIFICATION_REQUIRED = 'false';
+    resetConfigCache();
+    const db = await freshDb();
+    await db.insert('items', { title: '无主测试记录', createdAt: '2025-01-01', updatedAt: '2025-01-01' });
+    await register(db, 'owner@test.dev', 'pass-word-123', 'owner-register');
+    await register(db, 'later@test.dev', 'pass-word-123', 'later-register');
+    const later = await login(db, 'later@test.dev', 'pass-word-123', 'later-login');
+    expect(await listItems(db, later.user.id)).toHaveLength(0);
+    const owner = await login(db, 'owner@test.dev', 'pass-word-123', 'owner-login');
+    expect(await listItems(db, owner.user.id)).toHaveLength(1);
+    expect(await listItems(db, later.user.id)).toHaveLength(0);
+  });
 });
 
 describe('注册与验证', () => {

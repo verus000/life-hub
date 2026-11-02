@@ -22,4 +22,8 @@
 
 ## 代理与邮件
 
-APP_URL 填写实际访问地址，激活链接与会话 Cookie 的 Secure 属性由此确定。TRUST_PROXY 默认 false；仅在应用禁止外部直连且可信反代正确处理来源头时开启。真实 SMTP 另行配置，未配置时使用 console 邮件模式。
+邮箱验证默认关闭，注册后直接登录；已有未验证账号使用原密码，数据库验证时间保持为空。以后启用 EMAIL_VERIFICATION_REQUIRED=true 时，这些账号需要通过登录页重发邮件完成验证。启用后默认 console 邮件模式，真实 SMTP 另行配置。此调整不涉及 DDL 或批量修改账号。
+
+NEXT_PUBLIC_BASE_PATH 构建时指定部署前缀，默认根路径；修改后须重新构建镜像。APP_URL 填写包含相同前缀的对外完整地址，激活链接与会话 Cookie 的 Secure 属性由此确定。切换路径后重新登录。Nginx 转发保留前缀，示例见 deploy/nginx.conf.example，构建与 Compose 参数见 README.md。
+
+TRUST_PROXY 默认 false；仅在应用禁止外部直连且可信反代正确处理来源头时开启。

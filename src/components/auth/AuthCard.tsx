@@ -8,11 +8,12 @@ import { Btn } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { withBasePath } from '@/lib/base-path';
 
 type View = 'login' | 'register' | 'resend';
 
 async function post(path: string, body: object): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
-  const res = await fetch('/api/auth/' + path, {
+  const res = await fetch(withBasePath('/api/auth/' + path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -27,7 +28,7 @@ async function post(path: string, body: object): Promise<{ ok: boolean; status: 
   return { ok: res.ok, status: res.status, data };
 }
 
-export function AuthCard({ initialView = 'login' }: { initialView?: View }) {
+export function AuthCard({ initialView = 'login', verificationRequired = false }: { initialView?: View; verificationRequired?: boolean }) {
   const [view, setView] = useState<View>(initialView);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,7 +48,7 @@ export function AuthCard({ initialView = 'login' }: { initialView?: View }) {
       if (view === 'login') {
         const r = await post('login', { email, password });
         if (r.ok) {
-          window.location.href = '/';
+          window.location.href = withBasePath('/');
           return;
         }
         const message = String(r.data.error || '登录失败，请重试');
@@ -67,7 +68,7 @@ export function AuthCard({ initialView = 'login' }: { initialView?: View }) {
         }
         const r = await post('register', { email, password });
         if (!r.ok) throw new Error(String(r.data.error || '注册失败，请重试'));
-        setMsg(String(r.data.message || '注册成功，请查收验证邮件'));
+        setMsg(String(r.data.message || (verificationRequired ? '注册成功，请查收验证邮件' : '注册成功，请直接登录')));
         setView('login');
         return;
       }
@@ -106,11 +107,13 @@ export function AuthCard({ initialView = 'login' }: { initialView?: View }) {
     <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
       {view !== 'login' ? <Button variant="link" size="sm" onClick={() => setView('login')}>已有账号，去登录</Button> : <>
         <Button variant="link" size="sm" onClick={() => setView('register')}>注册新账号</Button>
-        <span className="text-xs text-ink-3" aria-hidden="true">·</span>
-        <Button variant="link" size="sm" onClick={() => setView('resend')}>重发验证邮件</Button>
+        {verificationRequired && <>
+          <span className="text-xs text-ink-3" aria-hidden="true">·</span>
+          <Button variant="link" size="sm" onClick={() => setView('resend')}>重发验证邮件</Button>
+        </>}
       </>}
     </div>
     <p className={'m-0 mt-3 min-h-5 text-center text-sm leading-relaxed ' + (isError ? 'text-danger' : 'text-ink-2')} role="status">{msg}</p>
-    {view === 'login' && !msg && <p className="m-0 mt-2 text-center text-xs text-ink-3">注册后需验证邮箱。</p>}
+    {view === 'login' && !msg && <p className="m-0 mt-2 text-center text-xs text-ink-3">{verificationRequired ? '注册后需验证邮箱。' : '注册后即可使用，无需验证邮箱。'}</p>}
   </AuthShell>;
 }

@@ -8,7 +8,8 @@ import { GET as me } from '@/app/api/auth/me/route';
 import { POST as logout } from '@/app/api/auth/logout/route';
 import { GET as list, POST as add } from '@/app/api/items/route';
 import { POST as importItems } from '@/app/api/items/import/route';
-import { clearMail, freshDb, setupEnv, verifyTokenFromOutbox } from './helpers';
+import { clearMail, freshDb, outbox, setupEnv, verifyTokenFromOutbox } from './helpers';
+import { resetConfigCache } from '@/server/config';
 
 const shared = globalThis as unknown as { __lifeHubDb?: Db };
 let db: Db;
@@ -66,6 +67,23 @@ it('Route Handler 往返注册、激活、登录、鉴权导入和登出', async
   const stale = await me(request('/api/auth/me', undefined, cookie));
   expect(stale.status).toBe(401);
   expect(stale.headers.get('set-cookie')).toContain('Max-Age=0');
+});
+
+it('关闭验证的注册、登录、会话和登出往返，不产生邮件', async () => {
+  process.env.EMAIL_VERIFICATION_REQUIRED = 'false';
+  resetConfigCache();
+  const credentials = { email: 'direct-route@example.test', password: 'test-password-123' };
+  const registered = await register(request('/api/auth/register', credentials));
+  expect(registered.status).toBe(201);
+  expect(await registered.json()).toMatchObject({ message: '注册成功，请直接登录' });
+  expect(outbox()).toHaveLength(0);
+  const loggedIn = await login(request('/api/auth/login', credentials));
+  expect(loggedIn.status).toBe(200);
+  const cookie = loggedIn.headers.get('set-cookie')!.split(';')[0];
+  expect(await (await me(request('/api/auth/me', undefined, cookie))).json()).toMatchObject({ email: credentials.email });
+  expect((await list(request('/api/items', undefined, cookie))).status).toBe(200);
+  expect((await logout(request('/api/auth/logout', {}, cookie))).status).toBe(200);
+  expect((await me(request('/api/auth/me', undefined, cookie))).status).toBe(401);
 });
 
 it('直连时不断伪造不同代理头仍触发同一个登录限流桶', async () => {

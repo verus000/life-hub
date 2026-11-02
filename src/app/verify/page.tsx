@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { AuthShell } from '@/components/auth/AuthShell';
 import { Icon } from '@/components/icons';
 import { Btn } from '@/components/ui';
+import { withBasePath } from '@/lib/base-path';
 
 type VerificationResult = {
   ok: boolean;
@@ -30,7 +31,7 @@ function VerifyBody() {
     if (request.current?.token !== token) {
       request.current = {
         token,
-        result: fetch('/api/auth/verify?token=' + encodeURIComponent(token))
+        result: fetch(withBasePath('/api/auth/verify?token=' + encodeURIComponent(token)))
           .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) })),
       };
     }
@@ -64,12 +65,12 @@ function VerifyBody() {
           <Icon name={state === 'ok' ? 'check' : 'bell'} className={'mx-auto mb-5 size-9 ' + (state === 'fail' ? 'text-danger' : 'text-brand')} />
           <p className="m-0 break-words text-sm leading-relaxed text-ink-2" role="status">{message}</p>
           {state === 'ok' && (
-            <Btn variant="primary" className="mt-5 w-full" onClick={() => (window.location.href = '/')}>
+            <Btn variant="primary" className="mt-5 w-full" onClick={() => (window.location.href = withBasePath('/'))}>
               进入应用
             </Btn>
           )}
           {state === 'fail' && (
-            <Btn className="mt-5 w-full" onClick={() => (window.location.href = '/login')}>
+            <Btn className="mt-5 w-full" onClick={() => (window.location.href = withBasePath('/login'))}>
               返回登录
             </Btn>
           )}

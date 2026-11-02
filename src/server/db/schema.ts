@@ -2,7 +2,7 @@ import { pgSchema, text, integer, doublePrecision, index, uniqueIndex } from 'dr
 
 const app = pgSchema('app');
 
-/* 用户：邮箱注册，email_verified_at 为空表示尚未激活 */
+/* 用户：邮箱注册，email_verified_at 记录真实邮箱验证；是否要求验证由配置决定。 */
 export const users = app.table(
   'users',
   {

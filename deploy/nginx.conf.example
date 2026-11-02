@@ -1,0 +1,14 @@
+# 合并到现有站点的 server 块；示例构建前缀为 /life-hub，应用监听 127.0.0.1:8787。
+# 对外 HTTPS 请使用站点已有的 TLS 配置，并设置 APP_URL=https://你的域名/life-hub。
+# 同时匹配 /life-hub 和 /life-hub/...；尾部斜杠规范化交给 Next.js，避免重定向循环。
+location ~ ^/life-hub(?:/|$) {
+    # 不加结尾 /，保留 /life-hub 前缀；Next.js 自己处理 basePath。
+    proxy_pass http://127.0.0.1:8787;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    client_max_body_size 2m;
+}

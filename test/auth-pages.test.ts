@@ -12,6 +12,7 @@ import RegisterPage from '@/app/register/page';
 import HomePage from '@/app/page';
 import { GET as me } from '@/app/api/auth/me/route';
 import { freshDb, setupEnv } from './helpers';
+import { resetConfigCache } from '@/server/config';
 
 const cookie = vi.hoisted(() => ({ token: undefined as string | undefined }));
 vi.mock('next/headers', () => ({
@@ -73,6 +74,15 @@ describe('会话页面跳转', () => {
 });
 
 describe('认证表单', () => {
+  it('关闭验证后登录页隐藏重发入口，并告知可直接使用', async () => {
+    process.env.EMAIL_VERIFICATION_REQUIRED = 'false';
+    resetConfigCache();
+    const html = renderToStaticMarkup(await LoginPage());
+    expect(html).toContain('无需验证邮箱');
+    expect(html).not.toContain('重发验证邮件');
+    expect(html).not.toContain('注册后需验证邮箱。');
+  });
+
   it('直接访问注册页显示注册字段', async () => {
     const html = renderToStaticMarkup(await RegisterPage());
     expect(html).toContain('确认密码');

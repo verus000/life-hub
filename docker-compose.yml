@@ -2,7 +2,10 @@
 # 仅运行应用，数据库由公共基础设施或独立生产实例提供。
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_BASE_PATH: ${NEXT_PUBLIC_BASE_PATH:-}
     container_name: life-hub
     restart: unless-stopped
     env_file: ${APP_ENV_FILE:-.env}

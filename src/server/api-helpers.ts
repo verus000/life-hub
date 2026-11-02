@@ -8,6 +8,7 @@ import { getSessionUser } from './auth/service';
 import { SESSION_COOKIE } from './auth/constants';
 import type { PublicUser } from './auth/service';
 import { getAppUrl, loadConfig } from './config';
+import { getBasePath } from '@/lib/base-path';
 
 export function jsonError(e: unknown, req?: NextRequest): NextResponse {
   if (e instanceof AppError) {
@@ -30,7 +31,7 @@ function cookieSecure(req: NextRequest): boolean {
 export function setSessionCookie(res: NextResponse, req: NextRequest, token: string, maxAgeSeconds: number): void {
   const parts = [
     SESSION_COOKIE + '=' + token,
-    'Path=/',
+    'Path=' + (getBasePath() || '/'),
     'HttpOnly',
     'SameSite=Strict',
     'Max-Age=' + maxAgeSeconds,
@@ -40,7 +41,7 @@ export function setSessionCookie(res: NextResponse, req: NextRequest, token: str
 }
 
 export function clearSessionCookie(res: NextResponse, req: NextRequest): void {
-  const parts = [SESSION_COOKIE + '=', 'Path=/', 'HttpOnly', 'SameSite=Strict', 'Max-Age=0'];
+  const parts = [SESSION_COOKIE + '=', 'Path=' + (getBasePath() || '/'), 'HttpOnly', 'SameSite=Strict', 'Max-Age=0'];
   if (cookieSecure(req)) parts.push('Secure');
   res.headers.append('Set-Cookie', parts.join('; '));
 }

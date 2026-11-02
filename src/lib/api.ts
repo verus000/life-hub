@@ -2,6 +2,7 @@
 
 import { csvColumns } from './records';
 import type { Item, ItemInput } from './types';
+import { withBasePath } from './base-path';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -15,7 +16,7 @@ export class ApiError extends Error {
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch('/api/' + path, {
+    res = await fetch(withBasePath('/api/' + path), {
       ...init,
       headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     });
@@ -35,7 +36,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
         ? String((data as { error: string }).error)
         : '请求失败（' + res.status + '）';
     if (res.status === 401 && typeof window !== 'undefined') {
-      window.location.href = '/login';
+      window.location.href = withBasePath('/login');
     }
     throw new ApiError(message, res.status);
   }

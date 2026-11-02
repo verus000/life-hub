@@ -1,6 +1,6 @@
 # 生活管理
 
-Next.js 16 / React 19 / TypeScript / Drizzle。包含手机号保活、宽带、停车费和资产管理，支持邮箱激活、用户数据隔离、提醒及备份导入导出。
+Next.js 16 / React 19 / TypeScript / Drizzle。包含手机号保活、宽带、停车费和资产管理，支持可选邮箱验证、用户数据隔离、提醒及备份导入导出。
 
 手机卡主要支持海外 eSIM：可用别名记录长期保号卡或旅行流量套餐，号码选填；号码／账号可直接填脱敏值，也可一键仅保留末四位。字段、表单、列表与新业务接入方式见 [EXTENDING.md](EXTENDING.md)。
 
@@ -42,7 +42,33 @@ npm run db:migrate -- testing
 npm run dev
 ```
 
-默认访问 `http://localhost:3000`。邮件默认 console 模式，验证链接显示在开发终端；真实发信另按 `.env.example` 配置 SMTP。`APP_URL` 应与实际浏览器访问地址一致。
+默认访问 `http://localhost:3000`。邮箱验证默认关闭（`EMAIL_VERIFICATION_REQUIRED=false`），注册后直接使用邮箱和密码登录，无需配置 SMTP，也不发送验证邮件。已有未验证账号仍使用原密码登录，重复注册不会覆盖账号或密码。
+
+以后设为 `EMAIL_VERIFICATION_REQUIRED=true` 并重启应用，即恢复邮件验证；关闭期间注册的账号也需要补验证，可在登录页重发邮件。未验证账号不会被标记为已验证。启用后邮件默认 console 模式，验证链接显示在开发终端；真实发信另按 `.env.example` 配置 SMTP。`APP_URL` 应与实际浏览器访问地址一致。
+
+历史无归属记录：关闭验证时由最早注册的账号在登录后认领；启用验证时沿用首个完成邮箱验证的账号认领。后续账号的数据保持隔离。
+
+## 基础路径与 Nginx
+
+`NEXT_PUBLIC_BASE_PATH` 默认留空，应用部署在域名根路径。要部署到 `https://life.example.com/life-hub`，在构建前设置：
+
+```dotenv
+NEXT_PUBLIC_BASE_PATH=/life-hub
+APP_URL=https://life.example.com/life-hub
+EMAIL_VERIFICATION_REQUIRED=false
+```
+
+前缀可以是 `/tools/life-hub` 这样的多层路径，不含域名或查询参数。Next.js 页面、API、静态资源、登录／登出跳转和会话 Cookie 均使用该前缀。基础路径在构建时固定，修改后必须重新构建；已有会话切换路径后需重新登录。开发时修改配置后重启 `npm run dev`。
+
+单独构建 Docker 镜像时传入公开路径参数（不得传入数据库凭据）：
+
+```powershell
+docker build --build-arg NEXT_PUBLIC_BASE_PATH=/life-hub -t life-hub .
+```
+
+Compose 从项目 `.env` 或 shell 读取 `NEXT_PUBLIC_BASE_PATH` 并传入构建。只填写 `APP_ENV_FILE` 指向的运行配置不会提供构建参数；请同时在 Compose 插值环境中设置前缀，再执行 `docker compose up -d --build`。`APP_URL` 在运行时注入，须包含相同前缀。
+
+将 [Nginx 示例](deploy/nginx.conf.example) 合并到已有站点的 `server` 块中，按实际前缀、应用端口和 TLS 配置调整。`proxy_pass http://127.0.0.1:8787` **末尾不要加 `/`**，让 Nginx 保留 `/life-hub` 前缀；无需单独重写 `/api` 或 `/_next`。示例适用于 Nginx 在宿主机、应用仅监听回环端口的部署；容器内 Nginx 需改为同网络的应用地址。应用端口禁止外部直连且来源头由可信 Nginx 覆盖后，才启用 `TRUST_PROXY=true`。
 
 ## 验证
 
@@ -56,7 +82,7 @@ npm run build
 
 现有预览占用默认构建目录时，可先设置 `$env:LIFE_HUB_DIST_DIR = '.next-postgres-check'` 再构建。生产模式的本地预览也必须显式注入测试配置（APP_ENV=testing、TEST_DATABASE_URL）；`npm start` 缺少配置会停止，不会根据 NODE_ENV 自动选择数据库或环境。
 
-当前为 11 个测试文件、105 项测试；包含 PostgreSQL 权限隔离、事务回滚和生产连接配置拒绝测试。生产配置测试不访问真实生产实例。
+测试包含注册验证开关、部署前缀、PostgreSQL 权限隔离、事务回滚和生产连接配置拒绝测试。生产配置测试不访问真实生产实例。
 
 ## 迁移与 Docker 运行
 

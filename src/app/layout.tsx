@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
+import { withBasePath } from '@/lib/base-path';
 
 export const metadata: Metadata = {
   title: '生活管理',
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body>{children}<Toaster /></body>
+      <body style={{ backgroundImage: `url('${withBasePath('/images/mint-orbit.png')}')` }}>{children}<Toaster /></body>
     </html>
   );
 }

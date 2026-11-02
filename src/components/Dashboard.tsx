@@ -7,6 +7,7 @@ import { Api, ApiError, downloadFile, toCSV } from '@/lib/api';
 import { CATEGORIES, ORDER, canUndo, complete as completeItem, todayStr, undo as undoItem } from '@/lib/model';
 import { backup, CATEGORIES as CATEGORY_LABELS, clone, parseImport, partition } from '@/lib/records';
 import { createCalendar } from '@/lib/calendar';
+import { withBasePath } from '@/lib/base-path';
 import type { CompletionValues, Item, ItemInput, ValidatedFields } from '@/lib/types';
 import { Btn, Modal, ConfirmDialog } from '@/components/ui';
 import { toast as notify } from 'sonner';
@@ -268,7 +269,7 @@ export function Dashboard({ initialItems, email }: { initialItems: Item[]; email
     try {
       await Api.logout();
     } finally {
-      window.location.href = '/login';
+      window.location.href = withBasePath('/login');
     }
   }
 

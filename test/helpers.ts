@@ -54,6 +54,8 @@ afterEach(async () => {
 export function setupEnv(): void {
   // 不覆盖 APP_ENV 或连接地址：配置错误应由入口拒绝。
   process.env.MAIL_MODE = 'console';
+  // 既有用例显式覆盖启用验证；关闭及默认行为由专门回归用例验证。
+  process.env.EMAIL_VERIFICATION_REQUIRED = 'true';
   process.env.APP_URL = 'http://127.0.0.1:3000';
   process.env.SESSION_TTL_DAYS = '7';
   process.env.TRUST_PROXY = 'false';
